@@ -43,6 +43,9 @@
 ">"                   {printf("BIGGER\n");}
 "++"                  {printf("INCREMENT\n");}
 "--"                  {printf("DECREMENT\n");}
+"**"                  {printf("EXPONENTIATION\n");}
+"*"                   {printf("MULTIPLICATION\n");}
+"/"                   {printf("DIVISION\n");}
 "+"                   {printf("ADDITION\n");}
 "-"                   {printf("SUBTRACTION\n");}
 [a-zA-Z][a-zA-Z0-9]*	{printf("ID(%s)\n",yytext);} /// \"[^\"]*\"|\'[^\']*\' {printf("STRING(%s)\n", yytext); }
