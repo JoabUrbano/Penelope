@@ -18,7 +18,8 @@
 %%
 
 ^\t+                  {int tabs = yyleng;handle_indent(tabs);}
-^\n                   {handle_indent(0);}
+//^\n                   {handle_indent(0);}
+[ \t\n]               ;
 [ \t]+                ;
 (int|float|void|any|string|bool)      {printf("TYPE(%s)\n", yytext);}
 \[                    {printf("LBRACKET\n");}
