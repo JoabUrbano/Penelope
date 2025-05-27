@@ -17,8 +17,7 @@
 
 %%
 
-^\t+                  {int tabs = yyleng;handle_indent(tabs);}
-//^\n                   {handle_indent(0);}
+^[ ]{4}+              {int tabs = yyleng/4; handle_indent(tabs);}
 [ \t\n]               ;
 [ \t]+                ;
 (int|float|void|any|string|bool)      {printf("TYPE(%s)\n", yytext);}
@@ -34,7 +33,7 @@
 "else"                {printf("ELSE\n");}
 "len"                 {printf("LEN\n");}
 "return"              {printf("RETURN\n");}
-":[ \t]*\n"           {printf("COLON_NEWLINE\n");} //não permite código seguido na mesma linha dos :
+":[ \t]*\n"           {printf("COLON_NEWLINE\n");} 
 ":"                   {printf("TYPYNG\n");}
 ";"                   {printf("SEMICOLON\n");}
 "="                   {printf("ASSIGNMENT\n");}
@@ -49,10 +48,10 @@
 "/"                   {printf("DIVISION\n");}
 "+"                   {printf("ADDITION\n");}
 "-"                   {printf("SUBTRACTION\n");}
-[a-zA-Z][a-zA-Z0-9]*	{printf("ID(%s)\n",yytext);} /// \"[^\"]*\"|\'[^\']*\' {printf("STRING(%s)\n", yytext); }
-\"                    {printf("DOUBLEQUOTES\n",yytext);} 
-\'                    {printf("SINPLEQUOTES\n",yytext);}
-.                     {printf("Invalid character.\n");}
+[a-zA-Z][a-zA-Z0-9]*  {printf("ID(%s)\n",yytext);}
+\"[^\"]*\"            {printf("STRING(%s)\n", yytext);}
+\'[^\']*\'            {printf("STRING(%s)\n", yytext);}
+.                     {printf("Invalid character: %s\n", yytext);}
 
 %%
 
