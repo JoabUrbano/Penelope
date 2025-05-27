@@ -46,7 +46,7 @@
 \)                    {printf("RPAREN\n");}
 [0-9]+                {printf("NUMBER(%s)\n",yytext);}
 
-":[ \t]*\n"           {printf("COLON_NEWLINE\n"); at_line_start = 1;} 
+:[ \t]*\n           {printf("COLON_NEWLINE\n"); at_line_start = 1;} 
 ":"                   {printf("COLON\n");}
 ";"                   {printf("SEMICOLON\n");}
 "="                   {printf("ASSIGNMENT\n");}
