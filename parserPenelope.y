@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+int yydebug = 0;  // Define the variable here
+
 extern int yylex();
 extern int yyparse();
 extern FILE* yyin;
@@ -26,6 +28,8 @@ extern int indent_sp;
 
 %token INDENT DEDENT COLON_NEWLINE
 
+%define parse.trace
+
 %type <str> expression lvalue type
 
 %right ASSIGNMENT
@@ -42,6 +46,7 @@ extern int indent_sp;
 %start program
 
 %%
+
 
 program:
     list_decl_fun
@@ -185,6 +190,7 @@ arg_list:
 
 %%
 
+
 void yyerror(const char* s) {
     extern int yylineno;
     fprintf(stderr, "Erro de Sintaxe: %s na linha %d\n", s, yylineno);
@@ -204,7 +210,9 @@ int main(int argc, char **argv) {
 
     indent_stack[0] = 0;
     indent_sp = 1;
-
+    
+    yydebug = 1;  // Enable parser debugging
+    
     if (yyparse() == 0) {
         printf("Análise concluída com sucesso. A sintaxe está correta!\n");
     } else {

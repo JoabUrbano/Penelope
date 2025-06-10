@@ -58,6 +58,10 @@ int process_queue() {
     return 0;
 }
 
+void print_token(int token, char* text) {
+    printf("TOKEN: %d, TEXT: '%s', LINE: %d\n", token, text, yylineno);
+}
+
 %}
 
 %option noyywrap
@@ -93,7 +97,7 @@ int process_queue() {
 "//".*                ;
 
 "fun"                 {return FUN;}
-(int|float|void|any|string|bool) {yylval.str = strdup(yytext); return TYPE;}
+(int|float|void|any|string|bool) { print_token(TYPE, yytext); yylval.str = strdup(yytext); return TYPE; }
 "while"               {return WHILE;}
 "for"                 {return FOR;}
 "if"                  {return IF;}
