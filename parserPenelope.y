@@ -26,7 +26,7 @@ extern int indent_sp;
 
 %token INDENT DEDENT COLON_NEWLINE
 
-%type <str> expression lvalue basic_type array_type type
+%type <str> expression lvalue type
 
 %right ASSIGNMENT
 %left EQUALS
@@ -34,8 +34,6 @@ extern int indent_sp;
 %left ADDITION SUBTRACTION
 %left MULTIPLICATION DIVISION
 %right EXPONENTIATION
-%left LBRACKET           
-%left ARRAY_TYPE
 %nonassoc UMINUS 
 
 %nonassoc LOWER_THAN_ELSE
@@ -56,6 +54,7 @@ list_decl_fun:
 decl_or_fun:
     fun
     | decl SEMICOLON
+    | NEWLINE
     ;
 
 fun:
@@ -71,21 +70,21 @@ list_stmt:
     | list_stmt stmt
     ;
 
-/* --- MODIFICATION IS HERE --- */
-/* The mandatory SEMICOLON was removed from simple_stmt. */
-/* This allows statements to be terminated by newlines, which matches the sample code. */
 stmt:
     simple_stmt
     | compound_stmt
+    | NEWLINE
     ;
 
 simple_stmt:
     decl SEMICOLON
     | decl NEWLINE
-    | assign SEMICOLON
-    | assign NEWLINE
+    | assign_stmt SEMICOLON
+    | assign_stmt NEWLINE
     | return_stmt SEMICOLON
     | return_stmt NEWLINE
+    | expression SEMICOLON
+    | expression NEWLINE
     ;
 
 compound_stmt:
@@ -104,20 +103,13 @@ decl:
     ;
 
 type:
-    basic_type                          { $$ = $1; }
-    | array_type                        { $$ = $1; }
-    ;
-
-basic_type:
     TYPE                                { $$ = $1; }
-    ;
-
-array_type:
-    basic_type LBRACKET RBRACKET %prec ARRAY_TYPE  { 
-        char *array_type = malloc(strlen($1) + 3);
-        sprintf(array_type, "%s[]", $1);
-        $$ = array_type;
-    }
+    | TYPE LBRACKET RBRACKET            { 
+                                            char *array_type = malloc(strlen($1) + 3);
+                                            sprintf(array_type, "%s[]", $1);
+                                            $$ = array_type;
+                                            free($1);
+                                        }
     ;
 
 list_param_opt:
@@ -139,19 +131,19 @@ if_stmt:
     ;
 
 for_stmt:
-    FOR LPAREN for_init SEMICOLON expression SEMICOLON assign RPAREN COLON_NEWLINE block
+    FOR LPAREN for_init SEMICOLON expression SEMICOLON assign_stmt RPAREN COLON_NEWLINE block
     ;
 
 for_init:
     decl
-    | assign
+    | assign_stmt
     ;
 
 return_stmt:
     RETURN expression
     ;
 
-assign:
+assign_stmt:
     lvalue ASSIGNMENT expression
     | ID INCREMENT
     | ID DECREMENT
@@ -179,7 +171,6 @@ expression:
     | expression EQUALS expression                 { $$ = strdup("expr"); }
     | SUBTRACTION expression %prec UMINUS          { $$ = strdup("expr"); }
     | ID LPAREN arg_list_opt RPAREN                { $$ = strdup("expr"); }
-    | assign                                       { $$ = strdup("expr"); }
     | LEN LPAREN expression RPAREN                 { $$ = strdup("expr"); }
     ;
 

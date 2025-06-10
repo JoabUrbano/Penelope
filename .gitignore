@@ -1,3 +1,6 @@
+# Ignorar arquivos de configuração do Visual Studio Code
+.vscode/
+
 # Arquivos gerados pelo Flex
 lex.yy.c
 

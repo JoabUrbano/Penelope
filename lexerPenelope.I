@@ -24,7 +24,7 @@ void push_token(int token) {
 }
 
 void handle_indent(int new_indent_spaces) {
-    if (new_indent_spaces % INDENT_WIDTH != 0) {
+    if (new_indent_spaces % INDENT_WIDTH != 0 && new_indent_spaces != 0) {
         fprintf(stderr, "Erro Léxico: Indentação inválida de %d espaços. Deve ser um múltiplo de %d.\n", new_indent_spaces, INDENT_WIDTH);
         exit(1);
     }
@@ -72,13 +72,19 @@ int process_queue() {
     }
 %}
 
-^[ ]*                  {
+^[ ]*"//".*           { /* Handle comment lines - don't consume newline */ }
+^[ ]*                 {
                         if (at_line_start) {
                           handle_indent(yyleng);
                           at_line_start = 0;
                           int token = process_queue();
                           if (token) return token;
                         }
+                      }
+
+":"[ \t]*\n           { 
+                        at_line_start = 1; 
+                        return COLON_NEWLINE; 
                       }
 
 \n+                   { at_line_start = 1; return NEWLINE; }
@@ -101,11 +107,6 @@ int process_queue() {
 "("                   {return LPAREN;}
 ")"                   {return RPAREN;}
 [0-9]+                {yylval.str = strdup(yytext); return NUMBER;}
-
-":\n"                 { 
-                        at_line_start = 1; 
-                        return COLON_NEWLINE; 
-                      }
 
 ":"                   {return COLON;}
 ";"                   {return SEMICOLON;}
