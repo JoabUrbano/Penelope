@@ -1,80 +1,133 @@
 %{
-  #include <stdio.h>
-  int current_indent = 0;
-  int previous_indent = 0;
-  int at_line_start = 1;
+#include <stdio.h>
+#include <string.h>
+#include "parser.tab.h"
 
-  void handle_indent(int count) {
-    if (count > previous_indent) {
-        printf("INDENT\n");
-    } else if (count < previous_indent) {
-        for (int i = 0; i < (previous_indent - count); i++) {
-            printf("DEDENT\n");
+#define MAX_INDENT_STACK 100
+#define INDENT_WIDTH 4
+
+int token_queue[MAX_INDENT_STACK];
+int queue_head = 0;
+int queue_tail = 0;
+
+int indent_stack[MAX_INDENT_STACK];
+int indent_sp;
+
+int at_line_start = 1;
+
+void push_token(int token) {
+    if (queue_tail >= MAX_INDENT_STACK) {
+        fprintf(stderr, "Erro Léxico: Estouro da fila de tokens. Muitos DEDENTs?\n");
+        exit(1);
+    }
+    token_queue[queue_tail++] = token;
+}
+
+void handle_indent(int new_indent_spaces) {
+    if (new_indent_spaces % INDENT_WIDTH != 0) {
+        fprintf(stderr, "Erro Léxico: Indentação inválida de %d espaços. Deve ser um múltiplo de %d.\n", new_indent_spaces, INDENT_WIDTH);
+        exit(1);
+    }
+    int new_indent_level = new_indent_spaces / INDENT_WIDTH;
+
+    if (new_indent_level > indent_stack[indent_sp - 1]) {
+        if (indent_sp >= MAX_INDENT_STACK) {
+            fprintf(stderr, "Erro Léxico: Estouro da pilha de indentação\n");
+            exit(1);
+        }
+        push_token(INDENT);
+        indent_stack[indent_sp++] = new_indent_level;
+    } else {
+        while (new_indent_level < indent_stack[indent_sp - 1]) {
+            indent_sp--;
+            push_token(DEDENT);
+        }
+        if (new_indent_level != indent_stack[indent_sp - 1]) {
+            fprintf(stderr, "Erro Léxico: Nível de indentação inconsistente.\n");
+            exit(1);
         }
     }
-    previous_indent = count;
-  }  
+}
+
+int process_queue() {
+    if (queue_head < queue_tail) {
+        return token_queue[queue_head++];
+    }
+    queue_head = 0;
+    queue_tail = 0;
+    return 0;
+}
+
 %}
 
+%option noyywrap
+
 %%
 
-^[ ]{4}*              {
+%{
+    int token;
+    if ((token = process_queue())) {
+        return token;
+    }
+%}
+
+^[ ]*                  {
                         if (at_line_start) {
-                          int tabs = yyleng/4;
-                          handle_indent(tabs);
+                          handle_indent(yyleng);
                           at_line_start = 0;
+                          int token = process_queue();
+                          if (token) return token;
                         }
                       }
-\n                    {at_line_start = 1;}
-[ \t]+                ; /* ignore whitespace */
 
-"//".*                ; /* ignore comments */
+\n+                   { at_line_start = 1; }
+[ \t]+                ;
 
-"fun"                 {printf("FUN\n");}
-(int|float|void|any|string|bool)      {printf("TYPE(%s)\n", yytext);}
-"while"               {printf("WHILE\n");}
-"for"                 {printf("FOR\n");}
-"if"                  {printf("IF\n");}
-"else"                {printf("ELSE\n");}
-"len"                 {printf("LEN\n");}
-"return"              {printf("RETURN\n");}
+"//".*                ;
 
-\[                    {printf("LBRACKET\n");}
-\]                    {printf("RBRACKET\n");}
-,                     {printf("COMMA\n");}
-\(                    {printf("LPAREN\n");}
-\)                    {printf("RPAREN\n");}
-[0-9]+                {printf("NUMBER(%s)\n",yytext);}
+"fun"                 {return FUN;}
+(int|float|void|any|string|bool) {yylval.str = strdup(yytext); return TYPE;}
+"while"               {return WHILE;}
+"for"                 {return FOR;}
+"if"                  {return IF;}
+"else"                {return ELSE;}
+"len"                 {return LEN;}
+"return"              {return RETURN;}
 
-:[ \t]*\n           {printf("COLON_NEWLINE\n"); at_line_start = 1;} 
-":"                   {printf("COLON\n");}
-";"                   {printf("SEMICOLON\n");}
-"="                   {printf("ASSIGNMENT\n");}
-"<="                  {printf("SMALLEREQUALS\n");}
-">="                  {printf("BIGGEREQUALS\n");}
-"<"                   {printf("SMALLER\n");}
-">"                   {printf("BIGGER\n");}
-"++"                  {printf("INCREMENT\n");}
-"--"                  {printf("DECREMENT\n");}
-"**"                  {printf("EXPONENTIATION\n");}
-"*"                   {printf("MULTIPLICATION\n");}
-"/"                   {printf("DIVISION\n");}
-"+"                   {printf("ADDITION\n");}
-"-"                   {printf("SUBTRACTION\n");}
+"["                   {return LBRACKET;}
+"]"                   {return RBRACKET;}
+","                   {return COMMA;}
+"("                   {return LPAREN;}
+")"                   {return RPAREN;}
+[0-9]+                {yylval.str = strdup(yytext); return NUMBER;}
 
-[a-zA-Z][a-zA-Z0-9]*  {printf("ID(%s)\n",yytext);}
-\"[^\"]*\"            {printf("STRING(%s)\n", yytext);}
-\'[^\']*\'            {printf("STRING(%s)\n", yytext);}
+":"[ \t]*\n           { at_line_start = 1; return COLON_NEWLINE; }
+":"                   {return COLON;}
+";"                   {return SEMICOLON;}
+"="                   {return ASSIGNMENT;}
+"=="                  {return EQUALS;}
+"<="                  {return SMALLEREQUALS;}
+">="                  {return BIGGEREQUALS;}
+"<"                   {return SMALLER;}
+">"                   {return BIGGER;}
+"++"                  {return INCREMENT;}
+"--"                  {return DECREMENT;}
+"**"                  {return EXPONENTIATION;}
+"*"                   {return MULTIPLICATION;}
+"/"                   {return DIVISION;}
+"+"                   {return ADDITION;}
+"-"                   {return SUBTRACTION;}
 
-.                     {printf("CHAR(%s)\n", yytext);} 
+[a-zA-Z_][a-zA-Z0-9_]* {yylval.str = strdup(yytext); return ID;}
+\"[^\"]*\"            {yylval.str = strdup(yytext); return STRING;}
+\'[^\']*\'            {yylval.str = strdup(yytext); return STRING;}
+
+.                     {fprintf(stderr, "Erro Léxico: Caractere inesperado '%s'\n", yytext); exit(1);}
+
+<<EOF>>               {
+                        handle_indent(0);
+                        int token = process_queue();
+                        if (token) return token;
+                        return 0;
+                      }
 %%
-
-#ifndef yywrap
-   int yywrap (void) {return 1;}
-#endif
-
-int main(void)
-{
-  yylex();  
-  return 0;
-}

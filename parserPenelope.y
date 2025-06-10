@@ -30,6 +30,8 @@ extern int indent_sp;
 /* Tokens que lidam com a indentação. */
 %token INDENT DEDENT COLON_NEWLINE
 
+%type <str> expression
+
 /* Precedência e Associatividade dos Operadores (da menor para a maior). */
 %right ASSIGNMENT
 %left EQUALS
@@ -37,6 +39,7 @@ extern int indent_sp;
 %left ADDITION SUBTRACTION
 %left MULTIPLICATION DIVISION
 %right EXPONENTIATION
+%left LBRACKET           
 %nonassoc UMINUS 
 
 /* Define a regra inicial da gramática. */
@@ -138,25 +141,25 @@ assign:
     ;
 
 expression:
-    NUMBER
-    | ID
-    | STRING
-    | LPAREN expression RPAREN                      { $$ = $2; }
-    | expression ADDITION expression
-    | expression SUBTRACTION expression
-    | expression MULTIPLICATION expression
-    | expression DIVISION expression
-    | expression EXPONENTIATION expression
-    | expression SMALLER expression
-    | expression BIGGER expression
-    | expression SMALLEREQUALS expression
-    | expression BIGGEREQUALS expression
-    | expression EQUALS expression
-    | SUBTRACTION expression %prec UMINUS          /* Menos unário. */
-    | ID LPAREN arg_list_opt RPAREN                /* Chamada de função. */
-    | expression LBRACKET expression RBRACKET      /* Acesso a array. */
-    | assign                                       /* Atribuição */
-    | LEN LPAREN expression RPAREN
+    NUMBER                                         { $$ = $1; }
+    | ID                                           { $$ = $1; }
+    | STRING                                       { $$ = $1; }
+    | LPAREN expression RPAREN                     { $$ = $2; }
+    | expression ADDITION expression               { $$ = strdup("expr"); /* placeholder */ }
+    | expression SUBTRACTION expression            { $$ = strdup("expr"); /* placeholder */ }
+    | expression MULTIPLICATION expression         { $$ = strdup("expr"); /* placeholder */ }
+    | expression DIVISION expression               { $$ = strdup("expr"); /* placeholder */ }
+    | expression EXPONENTIATION expression         { $$ = strdup("expr"); /* placeholder */ }
+    | expression SMALLER expression                { $$ = strdup("expr"); /* placeholder */ }
+    | expression BIGGER expression                 { $$ = strdup("expr"); /* placeholder */ }
+    | expression SMALLEREQUALS expression          { $$ = strdup("expr"); /* placeholder */ }
+    | expression BIGGEREQUALS expression           { $$ = strdup("expr"); /* placeholder */ }
+    | expression EQUALS expression                 { $$ = strdup("expr"); /* placeholder */ }
+    | SUBTRACTION expression %prec UMINUS          { $$ = strdup("expr"); /* unary minus */ }
+    | ID LPAREN arg_list_opt RPAREN                { $$ = strdup("expr"); /* function call */ }
+    | expression LBRACKET expression RBRACKET      { $$ = strdup("expr"); /* array access */ }
+    | assign                                       { $$ = strdup("expr"); /* assignment */ }
+    | LEN LPAREN expression RPAREN                 { $$ = strdup("expr"); /* len function */ }
     ;
 
 arg_list_opt:
