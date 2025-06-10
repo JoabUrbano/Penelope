@@ -61,6 +61,7 @@ int process_queue() {
 %}
 
 %option noyywrap
+%option yylineno
 
 %%
 
@@ -80,7 +81,7 @@ int process_queue() {
                         }
                       }
 
-\n+                   { at_line_start = 1; }
+\n+                   { at_line_start = 1; return NEWLINE; }
 [ \t]+                ;
 
 "//".*                ;
@@ -101,7 +102,11 @@ int process_queue() {
 ")"                   {return RPAREN;}
 [0-9]+                {yylval.str = strdup(yytext); return NUMBER;}
 
-":"[ \t]*\n           { at_line_start = 1; return COLON_NEWLINE; }
+":\n"                 { 
+                        at_line_start = 1; 
+                        return COLON_NEWLINE; 
+                      }
+
 ":"                   {return COLON;}
 ";"                   {return SEMICOLON;}
 "="                   {return ASSIGNMENT;}
@@ -128,6 +133,10 @@ int process_queue() {
                         handle_indent(0);
                         int token = process_queue();
                         if (token) return token;
+                        if (!at_line_start) {
+                            at_line_start = 1;
+                            return NEWLINE;
+                        }
                         return 0;
                       }
 %%

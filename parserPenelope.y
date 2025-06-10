@@ -13,26 +13,21 @@ extern int indent_sp;
 
 %}
 
-/* União para armazenar diferentes tipos de valores para os tokens. */
 %union {
     char *str;
 }
 
-/* Declara os tokens que possuem valores (vindos do lexer). */
 %token <str> ID TYPE NUMBER STRING
 
-/* Declara todos os outros tokens (palavras-chave, operadores, pontuação). */
 %token FUN WHILE FOR IF ELSE LEN RETURN
-%token LBRACKET RBRACKET COMMA LPAREN RPAREN COLON SEMICOLON
+%token LBRACKET RBRACKET COMMA LPAREN RPAREN COLON SEMICOLON NEWLINE
 %token ASSIGNMENT EQUALS SMALLEREQUALS BIGGEREQUALS SMALLER BIGGER
 %token INCREMENT DECREMENT EXPONENTIATION MULTIPLICATION DIVISION ADDITION SUBTRACTION
 
-/* Tokens que lidam com a indentação. */
 %token INDENT DEDENT COLON_NEWLINE
 
-%type <str> expression
+%type <str> expression lvalue basic_type array_type type
 
-/* Precedência e Associatividade dos Operadores (da menor para a maior). */
 %right ASSIGNMENT
 %left EQUALS
 %left SMALLEREQUALS BIGGEREQUALS SMALLER BIGGER
@@ -40,14 +35,15 @@ extern int indent_sp;
 %left MULTIPLICATION DIVISION
 %right EXPONENTIATION
 %left LBRACKET           
+%left ARRAY_TYPE
 %nonassoc UMINUS 
 
-/* Define a regra inicial da gramática. */
+%nonassoc LOWER_THAN_ELSE
+%nonassoc ELSE
+
 %start program
 
 %%
-
-/* ---------- REGRAS DA GRAMÁTICA ---------- */
 
 program:
     list_decl_fun
@@ -75,20 +71,31 @@ list_stmt:
     | list_stmt stmt
     ;
 
+/* --- MODIFICATION IS HERE --- */
+/* The mandatory SEMICOLON was removed from simple_stmt. */
+/* This allows statements to be terminated by newlines, which matches the sample code. */
 stmt:
-    simple_stmt SEMICOLON
+    simple_stmt
     | compound_stmt
     ;
 
 simple_stmt:
-    decl
-    | assign
-    | return_stmt
+    decl SEMICOLON
+    | decl NEWLINE
+    | assign SEMICOLON
+    | assign NEWLINE
+    | return_stmt SEMICOLON
+    | return_stmt NEWLINE
     ;
 
 compound_stmt:
     if_stmt
     | for_stmt
+    | while_stmt
+    ;
+
+while_stmt:
+    WHILE LPAREN expression RPAREN COLON_NEWLINE block
     ;
 
 decl:
@@ -97,10 +104,20 @@ decl:
     ;
 
 type:
-    TYPE 
-    | ID
-    | TYPE LBRACKET RBRACKET
-    | ID LBRACKET RBRACKET
+    basic_type                          { $$ = $1; }
+    | array_type                        { $$ = $1; }
+    ;
+
+basic_type:
+    TYPE                                { $$ = $1; }
+    ;
+
+array_type:
+    basic_type LBRACKET RBRACKET %prec ARRAY_TYPE  { 
+        char *array_type = malloc(strlen($1) + 3);
+        sprintf(array_type, "%s[]", $1);
+        $$ = array_type;
+    }
     ;
 
 list_param_opt:
@@ -117,7 +134,7 @@ param:
     ;
 
 if_stmt:
-    IF LPAREN expression RPAREN COLON_NEWLINE block
+    IF LPAREN expression RPAREN COLON_NEWLINE block %prec LOWER_THAN_ELSE
     | IF LPAREN expression RPAREN COLON_NEWLINE block ELSE COLON_NEWLINE block
     ;
 
@@ -135,31 +152,35 @@ return_stmt:
     ;
 
 assign:
-    ID ASSIGNMENT expression
+    lvalue ASSIGNMENT expression
     | ID INCREMENT
     | ID DECREMENT
     ;
 
+lvalue:
+    ID
+    | lvalue LBRACKET expression RBRACKET
+    ;
+
 expression:
     NUMBER                                         { $$ = $1; }
-    | ID                                           { $$ = $1; }
+    | lvalue                                       { $$ = $1; }
     | STRING                                       { $$ = $1; }
     | LPAREN expression RPAREN                     { $$ = $2; }
-    | expression ADDITION expression               { $$ = strdup("expr"); /* placeholder */ }
-    | expression SUBTRACTION expression            { $$ = strdup("expr"); /* placeholder */ }
-    | expression MULTIPLICATION expression         { $$ = strdup("expr"); /* placeholder */ }
-    | expression DIVISION expression               { $$ = strdup("expr"); /* placeholder */ }
-    | expression EXPONENTIATION expression         { $$ = strdup("expr"); /* placeholder */ }
-    | expression SMALLER expression                { $$ = strdup("expr"); /* placeholder */ }
-    | expression BIGGER expression                 { $$ = strdup("expr"); /* placeholder */ }
-    | expression SMALLEREQUALS expression          { $$ = strdup("expr"); /* placeholder */ }
-    | expression BIGGEREQUALS expression           { $$ = strdup("expr"); /* placeholder */ }
-    | expression EQUALS expression                 { $$ = strdup("expr"); /* placeholder */ }
-    | SUBTRACTION expression %prec UMINUS          { $$ = strdup("expr"); /* unary minus */ }
-    | ID LPAREN arg_list_opt RPAREN                { $$ = strdup("expr"); /* function call */ }
-    | expression LBRACKET expression RBRACKET      { $$ = strdup("expr"); /* array access */ }
-    | assign                                       { $$ = strdup("expr"); /* assignment */ }
-    | LEN LPAREN expression RPAREN                 { $$ = strdup("expr"); /* len function */ }
+    | expression ADDITION expression               { $$ = strdup("expr"); }
+    | expression SUBTRACTION expression            { $$ = strdup("expr"); }
+    | expression MULTIPLICATION expression         { $$ = strdup("expr"); }
+    | expression DIVISION expression               { $$ = strdup("expr"); }
+    | expression EXPONENTIATION expression         { $$ = strdup("expr"); }
+    | expression SMALLER expression                { $$ = strdup("expr"); }
+    | expression BIGGER expression                 { $$ = strdup("expr"); }
+    | expression SMALLEREQUALS expression          { $$ = strdup("expr"); }
+    | expression BIGGEREQUALS expression           { $$ = strdup("expr"); }
+    | expression EQUALS expression                 { $$ = strdup("expr"); }
+    | SUBTRACTION expression %prec UMINUS          { $$ = strdup("expr"); }
+    | ID LPAREN arg_list_opt RPAREN                { $$ = strdup("expr"); }
+    | assign                                       { $$ = strdup("expr"); }
+    | LEN LPAREN expression RPAREN                 { $$ = strdup("expr"); }
     ;
 
 arg_list_opt:
@@ -173,10 +194,9 @@ arg_list:
 
 %%
 
-/* ---------- SEÇÃO DE CÓDIGO C ---------- */
-
 void yyerror(const char* s) {
-    fprintf(stderr, "Erro de Sintaxe: %s\n", s);
+    extern int yylineno;
+    fprintf(stderr, "Erro de Sintaxe: %s na linha %d\n", s, yylineno);
 }
 
 int main(int argc, char **argv) {
@@ -194,7 +214,6 @@ int main(int argc, char **argv) {
     indent_stack[0] = 0;
     indent_sp = 1;
 
-    // Inicia a análise sintática (parsing).
     if (yyparse() == 0) {
         printf("Análise concluída com sucesso. A sintaxe está correta!\n");
     } else {
