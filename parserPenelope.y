@@ -3,8 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-int yydebug = 0;  // Define the variable here
-
 extern int yylex();
 extern int yyparse();
 extern FILE* yyin;
@@ -53,6 +51,7 @@ program:
     ;
 
 list_decl_fun:
+      decl_or_fun
     | list_decl_fun decl_or_fun
     ;
 
@@ -63,7 +62,7 @@ decl_or_fun:
     ;
 
 fun:
-    FUN type ID LPAREN list_param_opt RPAREN COLON_NEWLINE block
+    FUN type ID LPAREN list_param_opt RPAREN COLON_NEWLINE block 
     ;
 
 block:
@@ -82,13 +81,9 @@ stmt:
     ;
 
 simple_stmt:
-    decl SEMICOLON
-    | decl NEWLINE
-    | assign_stmt SEMICOLON
+    decl NEWLINE
     | assign_stmt NEWLINE
-    | return_stmt SEMICOLON
     | return_stmt NEWLINE
-    | expression SEMICOLON
     | expression NEWLINE
     ;
 
@@ -210,8 +205,6 @@ int main(int argc, char **argv) {
 
     indent_stack[0] = 0;
     indent_sp = 1;
-    
-    yydebug = 1;  // Enable parser debugging
     
     if (yyparse() == 0) {
         printf("Análise concluída com sucesso. A sintaxe está correta!\n");

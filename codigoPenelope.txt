@@ -1,24 +1,25 @@
 // Nota que um dos tipos da linguagem é o any para coisas que não se sabe o tipo 
 // no momento ou quer flexibilizar
 fun int[] retornarNumeroVendasOrdenadasDecrescente(any: dados):
-    int[]: dadosVendas = dados["quantidadeVendas"];
-    int: numVendas = len(dadosVendas);
+    int[]: dadosVendas = dados["quantidadeVendas"]
+    
+    int: numVendas = len(dadosVendas)
     for(int: i = 0; i < numVendas; i++):
         for(int: j = 0; j < numVendas - i - 1; j++):
             if(dadosVendas[j] < dadosVendas[j + 1]):
-                int: temporario = dadosVendas[j];
-                dadosVendas[j] = dadosVendas[j + 1];
-                dadosVendas[j + 1] = temporario;
-    return dadosVendas;
+                int: temporario = dadosVendas[j]
+                dadosVendas[j] = dadosVendas[j + 1]
+                dadosVendas[j + 1] = temporario
+    return dadosVendas
 
 
 fun void main():
     // Quero saber quantos vendedores passaram de 100 vendas no mês
-    any: dadosQuantidadeVendas;
-    int: quantidadeVendasSuperior100 = 0;
-    int[]: quantidadeVendasOrdenadoDecrescente;
+    any: dadosQuantidadeVendas
+    int: quantidadeVendasSuperior100 = 0
+    int[]: quantidadeVendasOrdenadoDecrescente
  
     for(int: i = 0; i < len(dadosQuantidadeVendas); i++):
         if(dadosQuantidadeVendas["quantidadeVendas"][i] > 100):
-            quantidadeVendasSuperior100 ++;
-    quantidadeVendasOrdenadoDecrescente = retornarNumeroVendasOrdenadasDecrescente(dadosQuantidadeVendas);
+            quantidadeVendasSuperior100 ++
+    quantidadeVendasOrdenadoDecrescente = retornarNumeroVendasOrdenadasDecrescente(dadosQuantidadeVendas)
