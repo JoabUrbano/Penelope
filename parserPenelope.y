@@ -7,10 +7,6 @@ extern int yylex();
 extern int yyparse();
 extern FILE* yyin;
 void yyerror(const char* s);
-
-extern int indent_stack[];
-extern int indent_sp;
-
 %}
 
 %union {
@@ -23,8 +19,7 @@ extern int indent_sp;
 %token LBRACKET RBRACKET COMMA LPAREN RPAREN COLON SEMICOLON NEWLINE
 %token ASSIGNMENT EQUALS SMALLEREQUALS BIGGEREQUALS SMALLER BIGGER
 %token INCREMENT DECREMENT EXPONENTIATION MULTIPLICATION DIVISION ADDITION SUBTRACTION
-
-%token INDENT DEDENT COLON_NEWLINE
+%token LBRACE RBRACE
 
 %define parse.trace
 
@@ -45,7 +40,6 @@ extern int indent_sp;
 
 %%
 
-
 program:
     list_decl_fun
     ;
@@ -62,11 +56,7 @@ decl_or_fun:
     ;
 
 fun:
-    FUN type ID LPAREN list_param_opt RPAREN COLON_NEWLINE block 
-    ;
-
-block:
-    INDENT list_stmt DEDENT
+    FUN type ID LPAREN list_param_opt RPAREN LBRACE list_stmt RBRACE
     ;
 
 list_stmt:
@@ -81,10 +71,10 @@ stmt:
     ;
 
 simple_stmt:
-    decl NEWLINE
-    | assign_stmt NEWLINE
-    | return_stmt NEWLINE
-    | expression NEWLINE
+    decl SEMICOLON
+    | assign_stmt SEMICOLON
+    | return_stmt SEMICOLON
+    | expression SEMICOLON
     ;
 
 compound_stmt:
@@ -94,7 +84,21 @@ compound_stmt:
     ;
 
 while_stmt:
-    WHILE LPAREN expression RPAREN COLON_NEWLINE block
+    WHILE LPAREN expression RPAREN LBRACE list_stmt RBRACE
+    ;
+
+if_stmt:
+    IF LPAREN expression RPAREN LBRACE list_stmt RBRACE %prec LOWER_THAN_ELSE
+    | IF LPAREN expression RPAREN LBRACE list_stmt RBRACE ELSE LBRACE list_stmt RBRACE
+    ;
+
+for_stmt:
+    FOR LPAREN for_init SEMICOLON expression SEMICOLON assign_stmt RPAREN LBRACE list_stmt RBRACE
+    ;
+
+for_init:
+    decl
+    | assign_stmt
     ;
 
 decl:
@@ -125,28 +129,14 @@ param:
     type COLON ID
     ;
 
-if_stmt:
-    IF LPAREN expression RPAREN COLON_NEWLINE block %prec LOWER_THAN_ELSE
-    | IF LPAREN expression RPAREN COLON_NEWLINE block ELSE COLON_NEWLINE block
-    ;
-
-for_stmt:
-    FOR LPAREN for_init SEMICOLON expression SEMICOLON assign_stmt RPAREN COLON_NEWLINE block
-    ;
-
-for_init:
-    decl
-    | assign_stmt
-    ;
-
 return_stmt:
     RETURN expression
     ;
 
 assign_stmt:
     lvalue ASSIGNMENT expression
-    | ID INCREMENT
-    | ID DECREMENT
+    | lvalue INCREMENT
+    | lvalue DECREMENT
     ;
 
 lvalue:
@@ -185,7 +175,6 @@ arg_list:
 
 %%
 
-
 void yyerror(const char* s) {
     extern int yylineno;
     fprintf(stderr, "Erro de Sintaxe: %s na linha %d\n", s, yylineno);
@@ -203,9 +192,6 @@ int main(int argc, char **argv) {
         yyin = stdin;
     }
 
-    indent_stack[0] = 0;
-    indent_sp = 1;
-    
     if (yyparse() == 0) {
         printf("Análise concluída com sucesso. A sintaxe está correta!\n");
     } else {
