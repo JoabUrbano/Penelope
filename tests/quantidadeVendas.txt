@@ -1,0 +1,29 @@
+fun int avaliar(int: vendas) {
+    if (vendas >= 100) {
+        return 1; // atingiu a meta
+    } else {
+        return 0; // não atingiu
+    }
+}
+
+fun void main() {
+    int[]: quantidadeVendas = [120,85,150,90,100];
+    int: bons = 0;
+    int: i = 0;
+
+    // Avaliar cada vendedor
+    for (int: i = 0; i < len(quantidadeVendas); i++) {
+        if (avaliar(quantidadeVendas[i]) == 1) {
+            bons++; // vendedor com bom desempenho
+        }
+    }
+
+    // Mostrar resultado usando while
+    int: contador = 0;
+    while (contador < bons) {
+        contador++; // contador com incremento simples
+    }
+
+    // Decrementa como exemplo de uso do --
+    contador--;
+}
