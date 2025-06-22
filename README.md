@@ -19,21 +19,7 @@ Para o analisador sintático, você também precisará do Bison:
 sudo apt install bison
 ```
 
-### Compilação do analisador léxico
-
-1. Compile o arquivo lexerPenelope.I usando o Flex:
-
-```bash
-flex lexerPenelope.I
-```
-
-2. Compile o código C gerado (lex.yy.c):
-
-```bash
-gcc lex.yy.c -o analisador_lexico -lfl
-```
-
-### Compilação do analisador sintático (parser)
+### Compilação
 
 1. Compile o arquivo de gramática usando o Bison:
 
@@ -53,31 +39,27 @@ flex -o lex.yy.c lexerPenelope.I
 gcc -o penelope_parser parser.tab.c lex.yy.c -lfl
 ```
 
-### Execução do analisador léxico
+### Execução
 
-Para analisar um código Penelope com o analisador léxico, execute:
+Foram preparados três exemplos de código penélope, abrangendo todos os construtores sintáticos da linguagem.
+
+Para analisar o código de um dos exemplos, execute:
 
 ```bash
-./analisador_lexico < codigoPenelope.txt
+./penelope_parser tests/codigoPenelope.txt
 ```
-
-### Execução do analisador sintático
-
-Para analisar um código Penelope com o analisador sintático, execute:
-
+ou
 ```bash
-./penelope_parser codigoPenelope.txt
+./penelope_parser tests/comParenteses.txt
+```
+ou
+```bash
+./penelope_parser tests/quantidadeVendas.txt
 ```
 
 ### Testando com outros arquivos
 
 Você pode analisar qualquer arquivo de código Penelope usando:
-
-```bash
-./analisador_lexico < seu_arquivo.txt
-```
-
-Ou para o analisador sintático:
 
 ```bash
 ./penelope_parser seu_arquivo.txt

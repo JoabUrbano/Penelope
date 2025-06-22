@@ -7,7 +7,7 @@ fun int avaliar(int: vendas) {
 }
 
 fun void main() {
-    int[]: quantidadeVendas = [1]
+    int[]: quantidadeVendas = [120,85,150,90,100];
     int: bons = 0;
     int: i = 0;
 
