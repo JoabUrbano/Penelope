@@ -23,7 +23,7 @@ void yyerror(const char* s);
 
 %define parse.trace
 
-%type <str> expression lvalue type
+%type <str> expression lvalue type list_expression
 
 %right ASSIGNMENT
 %left EQUALS
@@ -162,6 +162,12 @@ expression:
     | SUBTRACTION expression %prec UMINUS          { $$ = strdup("expr"); }
     | ID LPAREN arg_list_opt RPAREN                { $$ = strdup("expr"); }
     | LEN LPAREN expression RPAREN                 { $$ = strdup("expr"); }
+    | LBRACKET list_expression RBRACKET            { $$ = strdup("array_literal"); }
+    ;
+
+list_expression:
+    expression
+    | list_expression COMMA expression
     ;
 
 arg_list_opt:

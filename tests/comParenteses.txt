@@ -1,0 +1,24 @@
+fun void main() {
+    int: a = 10;
+    int: b = 20;
+    int: resultado;
+
+    resultado = (a + b) * 2; // expressão com parênteses
+
+    bool: condicao = true;
+    string: nome = "Penelope";
+
+    print("Início do for");
+
+    int: i = 0;
+    for(i = 0; i < 3; i++) {
+        if (condicao) {
+            print("Executando repetição número:");
+            print(i);
+            print("Olá, " + nome);
+        }
+    }
+
+    print("Resultado final:");
+    print(resultado);
+}
