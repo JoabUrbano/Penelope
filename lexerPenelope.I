@@ -1,80 +1,60 @@
 %{
-  #include <stdio.h>
-  int current_indent = 0;
-  int previous_indent = 0;
-  int at_line_start = 1;
-
-  void handle_indent(int count) {
-    if (count > previous_indent) {
-        printf("INDENT\n");
-    } else if (count < previous_indent) {
-        for (int i = 0; i < (previous_indent - count); i++) {
-            printf("DEDENT\n");
-        }
-    }
-    previous_indent = count;
-  }  
+#include <stdio.h>
+#include <string.h>
+#include "parser.tab.h"
 %}
 
+%option noyywrap
+%option yylineno
+
 %%
 
-^[ ]{4}*              {
-                        if (at_line_start) {
-                          int tabs = yyleng/4;
-                          handle_indent(tabs);
-                          at_line_start = 0;
-                        }
-                      }
-\n                    {at_line_start = 1;}
-[ \t]+                ; /* ignore whitespace */
+"fun"                { return FUN; }
+(int|float|void|any|string|bool) { yylval.str = strdup(yytext); return TYPE; }
+"while"              { return WHILE; }
+"for"                { return FOR; }
+"if"                 { return IF; }
+"else"               { return ELSE; }
+"len"                { return LEN; }
+"return"             { return RETURN; }
 
-"//".*                ; /* ignore comments */
+"{"                  { return LBRACE; }
+"}"                  { return RBRACE; }
+"["                  { return LBRACKET; }
+"]"                  { return RBRACKET; }
+","                  { return COMMA; }
+"("                  { return LPAREN; }
+")"                  { return RPAREN; }
+":"                  { return COLON; }
+";"                  { return SEMICOLON; }
 
-"fun"                 {printf("FUN\n");}
-(int|float|void|any|string|bool)      {printf("TYPE(%s)\n", yytext);}
-"while"               {printf("WHILE\n");}
-"for"                 {printf("FOR\n");}
-"if"                  {printf("IF\n");}
-"else"                {printf("ELSE\n");}
-"len"                 {printf("LEN\n");}
-"return"              {printf("RETURN\n");}
+"="                  { return ASSIGNMENT; }
+"=="                 { return EQUALS; }
+"<="                 { return SMALLEREQUALS; }
+">="                 { return BIGGEREQUALS; }
+"<"                  { return SMALLER; }
+">"                  { return BIGGER; }
+"++"                 { return INCREMENT; }
+"--"                 { return DECREMENT; }
+"**"                 { return EXPONENTIATION; }
+"*"                  { return MULTIPLICATION; }
+"/"                  { return DIVISION; }
+"+"                  { return ADDITION; }
+"-"                  { return SUBTRACTION; }
 
-\[                    {printf("LBRACKET\n");}
-\]                    {printf("RBRACKET\n");}
-,                     {printf("COMMA\n");}
-\(                    {printf("LPAREN\n");}
-\)                    {printf("RPAREN\n");}
-[0-9]+                {printf("NUMBER(%s)\n",yytext);}
+[0-9]+               { yylval.str = strdup(yytext); return NUMBER; }
 
-:[ \t]*\n           {printf("COLON_NEWLINE\n"); at_line_start = 1;} 
-":"                   {printf("COLON\n");}
-";"                   {printf("SEMICOLON\n");}
-"="                   {printf("ASSIGNMENT\n");}
-"<="                  {printf("SMALLEREQUALS\n");}
-">="                  {printf("BIGGEREQUALS\n");}
-"<"                   {printf("SMALLER\n");}
-">"                   {printf("BIGGER\n");}
-"++"                  {printf("INCREMENT\n");}
-"--"                  {printf("DECREMENT\n");}
-"**"                  {printf("EXPONENTIATION\n");}
-"*"                   {printf("MULTIPLICATION\n");}
-"/"                   {printf("DIVISION\n");}
-"+"                   {printf("ADDITION\n");}
-"-"                   {printf("SUBTRACTION\n");}
+[a-zA-Z_][a-zA-Z0-9_]* { yylval.str = strdup(yytext); return ID; }
 
-[a-zA-Z][a-zA-Z0-9]*  {printf("ID(%s)\n",yytext);}
-\"[^\"]*\"            {printf("STRING(%s)\n", yytext);}
-\'[^\']*\'            {printf("STRING(%s)\n", yytext);}
+\"([^\\\"]|\\.)*\"   { yylval.str = strdup(yytext); return STRING; }
+\'[^\']*\'           { yylval.str = strdup(yytext); return STRING; }
 
-.                     {printf("CHAR(%s)\n", yytext);} 
+[ \t]+               ;  // ignora espaços e tabs
+\n+                  { return NEWLINE; }
+
+"//".*               ;  // ignora comentários de linha
+
+.                    { fprintf(stderr, "Erro Léxico: Caractere inesperado '%s'\n", yytext); exit(1); }
+
 %%
 
-#ifndef yywrap
-   int yywrap (void) {return 1;}
-#endif
-
-int main(void)
-{
-  yylex();  
-  return 0;
-}

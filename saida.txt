@@ -1,0 +1,8 @@
+TOKEN: 259, TEXT: 'int', LINE: 3
+TOKEN: 259, TEXT: 'any', LINE: 3
+TOKEN: 259, TEXT: 'int', LINE: 4
+TOKEN: 259, TEXT: 'int', LINE: 6
+TOKEN: 259, TEXT: 'int', LINE: 7
+TOKEN: 259, TEXT: 'int', LINE: 8
+TOKEN: 259, TEXT: 'int', LINE: 10
+hellohellohellohelloFalha na análise. Foi encontrado um erro de sintaxe.

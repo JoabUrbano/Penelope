@@ -1,5 +1,13 @@
+# Ignorar arquivos de configuração do Visual Studio Code
+.vscode/
+
 # Arquivos gerados pelo Flex
 lex.yy.c
 
-# Executável compilado
+# Arquivos gerados pelo Bison
+parser.tab.c
+parser.tab.h
+
+# Executáveis compilados
 analisador_lexico
+penelope_parser
