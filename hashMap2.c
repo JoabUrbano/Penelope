@@ -12,6 +12,17 @@ typedef struct HashMap {
     Node* nodes;
 } HashMap;
 
+Node* find_node(HashMap* map, char* key) {
+    Node* current = map->nodes;
+    while (current != NULL) {
+        if (strcmp(current->key, key) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+
 void insert_node(HashMap* map, char* key, char* value) {
     Node* newNode = (Node*) malloc(sizeof(Node));
 
@@ -22,6 +33,17 @@ void insert_node(HashMap* map, char* key, char* value) {
     if(map->nodes == NULL) {
         map->nodes = newNode;
     } else {
+        Node* existingNode = find_node(map, key);
+
+        if(existingNode != NULL) {
+            existingNode->value = strdup(value);
+            free(newNode->key);
+            free(newNode->value);
+            free(newNode);
+            return;
+
+        }
+
         Node* current = map->nodes;
         while (current->next != NULL) {
             current = current->next;
@@ -53,16 +75,7 @@ void remove_node(HashMap* map, char* key) {
     printf("Chave '%s' não encontrada.\n", key);
 }
 
-Node* find_node(HashMap* map, char* key) {
-    Node* current = map->nodes;
-    while (current != NULL) {
-        if (strcmp(current->key, key) == 0) {
-            return current;
-        }
-        current = current->next;
-    }
-    return NULL;
-}
+
 
 void print_map(HashMap* map) {
     Node* current = map->nodes;
@@ -92,7 +105,7 @@ int main(int argc, char **argv) {
     HashMap map = { NULL };
 
     insert_node(&map, "nome", "Luiz");
-    insert_node(&map, "nome", "Luiz");
+    insert_node(&map, "nome", "Luiz GUSTAVO");
     insert_node(&map, "curso", "TI");
     insert_node(&map, "cidade", "Natal");
 
