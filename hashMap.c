@@ -1,27 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <hashMap.h>
 
-typedef struct Node {
-    char* key;
-    char* value;
-} Node;
-
-typedef struct HashMap {
-    Node* nodes;
-    int size;
-} HashMap;
 
 void insert(HashMap* map, char* key, char* value) {
     Node* newNode = (Node*) malloc(sizeof(Node));
-    newNode->key = strdup(key);     // copia a string para evitar problemas de ponteiro
+    newNode->key = strdup(key);
     newNode->value = strdup(value);
 
     map->nodes = (Node*) realloc(map->nodes, sizeof(Node) * (map->size + 1));
     map->nodes[map->size] = *newNode;
     map->size++;
 
-    free(newNode); // liberamos o wrapper, os dados já estão copiados no array
+    free(newNode);
 }
 
 void remove_node(HashMap* map, char* key) {
@@ -39,11 +31,9 @@ void remove_node(HashMap* map, char* key) {
         return;
     }
 
-    // libera memória da chave e valor
     free(map->nodes[index].key);
     free(map->nodes[index].value);
 
-    // desloca os elementos seguintes para preencher o "buraco"
     for (int i = index; i < map->size - 1; i++) {
         map->nodes[i] = map->nodes[i + 1];
     }
