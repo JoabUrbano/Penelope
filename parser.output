@@ -1,0 +1,2059 @@
+Gramática
+
+    0 $accept: program $end
+
+    1 program: list_decl_fun
+
+    2 list_decl_fun: decl_or_fun
+    3              | list_decl_fun decl_or_fun
+
+    4 decl_or_fun: fun
+    5            | decl SEMICOLON
+    6            | NEWLINE
+
+    7 fun: FUN type ID LPAREN list_param_opt RPAREN LBRACE list_stmt RBRACE
+
+    8 list_stmt: stmt
+    9          | list_stmt stmt
+
+   10 stmt: simple_stmt
+   11     | compound_stmt
+   12     | NEWLINE
+
+   13 simple_stmt: decl SEMICOLON
+   14            | assign_stmt SEMICOLON
+   15            | return_stmt SEMICOLON
+   16            | expression SEMICOLON
+
+   17 compound_stmt: if_stmt
+   18              | for_stmt
+   19              | while_stmt
+
+   20 while_stmt: WHILE LPAREN expression RPAREN LBRACE list_stmt RBRACE
+
+   21 if_stmt: IF LPAREN expression RPAREN LBRACE list_stmt RBRACE
+   22        | IF LPAREN expression RPAREN LBRACE list_stmt RBRACE ELSE LBRACE list_stmt RBRACE
+
+   23 for_stmt: FOR LPAREN for_init SEMICOLON expression SEMICOLON assign_stmt RPAREN LBRACE list_stmt RBRACE
+
+   24 for_init: decl
+   25         | assign_stmt
+
+   26 decl: type COLON ID
+   27     | type COLON ID ASSIGNMENT expression
+
+   28 type: TYPE
+   29     | TYPE LBRACKET RBRACKET
+
+   30 list_param_opt: ε
+   31               | list_param
+
+   32 list_param: param
+   33           | param COMMA list_param
+
+   34 param: type COLON ID
+
+   35 return_stmt: RETURN expression
+
+   36 assign_stmt: lvalue ASSIGNMENT expression
+   37            | lvalue INCREMENT
+   38            | lvalue DECREMENT
+
+   39 lvalue: ID
+   40       | lvalue LBRACKET expression RBRACKET
+
+   41 expression: NUMBER
+   42           | lvalue
+   43           | STRING
+   44           | LPAREN expression RPAREN
+   45           | expression ADDITION expression
+   46           | expression SUBTRACTION expression
+   47           | expression MULTIPLICATION expression
+   48           | expression DIVISION expression
+   49           | expression EXPONENTIATION expression
+   50           | expression SMALLER expression
+   51           | expression BIGGER expression
+   52           | expression SMALLEREQUALS expression
+   53           | expression BIGGEREQUALS expression
+   54           | expression EQUALS expression
+   55           | SUBTRACTION expression
+   56           | ID LPAREN arg_list_opt RPAREN
+   57           | LEN LPAREN expression RPAREN
+
+   58 arg_list_opt: ε
+   59             | arg_list
+
+   60 arg_list: expression
+   61         | arg_list COMMA expression
+
+
+Terminais, com as regras onde eles aparecem
+
+    $end (0) 0
+    error (256)
+    ID <str> (258) 7 26 27 34 39 56
+    TYPE <str> (259) 28 29
+    NUMBER <str> (260) 41
+    STRING <str> (261) 43
+    FUN (262) 7
+    WHILE (263) 20
+    FOR (264) 23
+    IF (265) 21 22
+    ELSE (266) 22
+    LEN (267) 57
+    RETURN (268) 35
+    LBRACKET (269) 29 40
+    RBRACKET (270) 29 40
+    COMMA (271) 33 61
+    LPAREN (272) 7 20 21 22 23 44 56 57
+    RPAREN (273) 7 20 21 22 23 44 56 57
+    COLON (274) 26 27 34
+    SEMICOLON (275) 5 13 14 15 16 23
+    NEWLINE (276) 6 12
+    ASSIGNMENT (277) 27 36
+    EQUALS (278) 54
+    SMALLEREQUALS (279) 52
+    BIGGEREQUALS (280) 53
+    SMALLER (281) 50
+    BIGGER (282) 51
+    INCREMENT (283) 37
+    DECREMENT (284) 38
+    EXPONENTIATION (285) 49
+    MULTIPLICATION (286) 47
+    DIVISION (287) 48
+    ADDITION (288) 45
+    SUBTRACTION (289) 46 55
+    LBRACE (290) 7 20 21 22 23
+    RBRACE (291) 7 20 21 22 23
+    UMINUS (292)
+    LOWER_THAN_ELSE (293)
+
+
+Não terminais com as regras onde eles aparecem
+
+    $accept (39)
+        à esquerda: 0
+    program (40)
+        à esquerda: 1
+        à direita: 0
+    list_decl_fun (41)
+        à esquerda: 2 3
+        à direita: 1 3
+    decl_or_fun (42)
+        à esquerda: 4 5 6
+        à direita: 2 3
+    fun (43)
+        à esquerda: 7
+        à direita: 4
+    list_stmt (44)
+        à esquerda: 8 9
+        à direita: 7 9 20 21 22 23
+    stmt (45)
+        à esquerda: 10 11 12
+        à direita: 8 9
+    simple_stmt (46)
+        à esquerda: 13 14 15 16
+        à direita: 10
+    compound_stmt (47)
+        à esquerda: 17 18 19
+        à direita: 11
+    while_stmt (48)
+        à esquerda: 20
+        à direita: 19
+    if_stmt (49)
+        à esquerda: 21 22
+        à direita: 17
+    for_stmt (50)
+        à esquerda: 23
+        à direita: 18
+    for_init (51)
+        à esquerda: 24 25
+        à direita: 23
+    decl (52)
+        à esquerda: 26 27
+        à direita: 5 13 24
+    type <str> (53)
+        à esquerda: 28 29
+        à direita: 7 26 27 34
+    list_param_opt (54)
+        à esquerda: 30 31
+        à direita: 7
+    list_param (55)
+        à esquerda: 32 33
+        à direita: 31 33
+    param (56)
+        à esquerda: 34
+        à direita: 32 33
+    return_stmt (57)
+        à esquerda: 35
+        à direita: 15
+    assign_stmt (58)
+        à esquerda: 36 37 38
+        à direita: 14 23 25
+    lvalue <str> (59)
+        à esquerda: 39 40
+        à direita: 36 37 38 40 42
+    expression <str> (60)
+        à esquerda: 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57
+        à direita: 16 20 21 22 23 27 35 36 40 44 45 46 47 48 49 50 51 52 53 54 55 57 60 61
+    arg_list_opt (61)
+        à esquerda: 58 59
+        à direita: 56
+    arg_list (62)
+        à esquerda: 60 61
+        à direita: 59 61
+
+
+Estado 0
+
+    0 $accept: • program $end
+
+    TYPE     deslocar, e ir ao estado 1
+    FUN      deslocar, e ir ao estado 2
+    NEWLINE  deslocar, e ir ao estado 3
+
+    program        ir ao estado 4
+    list_decl_fun  ir ao estado 5
+    decl_or_fun    ir ao estado 6
+    fun            ir ao estado 7
+    decl           ir ao estado 8
+    type           ir ao estado 9
+
+
+Estado 1
+
+   28 type: TYPE •
+   29     | TYPE • LBRACKET RBRACKET
+
+    LBRACKET  deslocar, e ir ao estado 10
+
+    $padrão  reduzir usando a regra 28 (type)
+
+
+Estado 2
+
+    7 fun: FUN • type ID LPAREN list_param_opt RPAREN LBRACE list_stmt RBRACE
+
+    TYPE  deslocar, e ir ao estado 1
+
+    type  ir ao estado 11
+
+
+Estado 3
+
+    6 decl_or_fun: NEWLINE •
+
+    $padrão  reduzir usando a regra 6 (decl_or_fun)
+
+
+Estado 4
+
+    0 $accept: program • $end
+
+    $end  deslocar, e ir ao estado 12
+
+
+Estado 5
+
+    1 program: list_decl_fun •
+    3 list_decl_fun: list_decl_fun • decl_or_fun
+
+    TYPE     deslocar, e ir ao estado 1
+    FUN      deslocar, e ir ao estado 2
+    NEWLINE  deslocar, e ir ao estado 3
+
+    $padrão  reduzir usando a regra 1 (program)
+
+    decl_or_fun  ir ao estado 13
+    fun          ir ao estado 7
+    decl         ir ao estado 8
+    type         ir ao estado 9
+
+
+Estado 6
+
+    2 list_decl_fun: decl_or_fun •
+
+    $padrão  reduzir usando a regra 2 (list_decl_fun)
+
+
+Estado 7
+
+    4 decl_or_fun: fun •
+
+    $padrão  reduzir usando a regra 4 (decl_or_fun)
+
+
+Estado 8
+
+    5 decl_or_fun: decl • SEMICOLON
+
+    SEMICOLON  deslocar, e ir ao estado 14
+
+
+Estado 9
+
+   26 decl: type • COLON ID
+   27     | type • COLON ID ASSIGNMENT expression
+
+    COLON  deslocar, e ir ao estado 15
+
+
+Estado 10
+
+   29 type: TYPE LBRACKET • RBRACKET
+
+    RBRACKET  deslocar, e ir ao estado 16
+
+
+Estado 11
+
+    7 fun: FUN type • ID LPAREN list_param_opt RPAREN LBRACE list_stmt RBRACE
+
+    ID  deslocar, e ir ao estado 17
+
+
+Estado 12
+
+    0 $accept: program $end •
+
+    $padrão  aceitar
+
+
+Estado 13
+
+    3 list_decl_fun: list_decl_fun decl_or_fun •
+
+    $padrão  reduzir usando a regra 3 (list_decl_fun)
+
+
+Estado 14
+
+    5 decl_or_fun: decl SEMICOLON •
+
+    $padrão  reduzir usando a regra 5 (decl_or_fun)
+
+
+Estado 15
+
+   26 decl: type COLON • ID
+   27     | type COLON • ID ASSIGNMENT expression
+
+    ID  deslocar, e ir ao estado 18
+
+
+Estado 16
+
+   29 type: TYPE LBRACKET RBRACKET •
+
+    $padrão  reduzir usando a regra 29 (type)
+
+
+Estado 17
+
+    7 fun: FUN type ID • LPAREN list_param_opt RPAREN LBRACE list_stmt RBRACE
+
+    LPAREN  deslocar, e ir ao estado 19
+
+
+Estado 18
+
+   26 decl: type COLON ID •
+   27     | type COLON ID • ASSIGNMENT expression
+
+    ASSIGNMENT  deslocar, e ir ao estado 20
+
+    $padrão  reduzir usando a regra 26 (decl)
+
+
+Estado 19
+
+    7 fun: FUN type ID LPAREN • list_param_opt RPAREN LBRACE list_stmt RBRACE
+
+    TYPE  deslocar, e ir ao estado 1
+
+    $padrão  reduzir usando a regra 30 (list_param_opt)
+
+    type            ir ao estado 21
+    list_param_opt  ir ao estado 22
+    list_param      ir ao estado 23
+    param           ir ao estado 24
+
+
+Estado 20
+
+   27 decl: type COLON ID ASSIGNMENT • expression
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 32
+
+
+Estado 21
+
+   34 param: type • COLON ID
+
+    COLON  deslocar, e ir ao estado 33
+
+
+Estado 22
+
+    7 fun: FUN type ID LPAREN list_param_opt • RPAREN LBRACE list_stmt RBRACE
+
+    RPAREN  deslocar, e ir ao estado 34
+
+
+Estado 23
+
+   31 list_param_opt: list_param •
+
+    $padrão  reduzir usando a regra 31 (list_param_opt)
+
+
+Estado 24
+
+   32 list_param: param •
+   33           | param • COMMA list_param
+
+    COMMA  deslocar, e ir ao estado 35
+
+    $padrão  reduzir usando a regra 32 (list_param)
+
+
+Estado 25
+
+   39 lvalue: ID •
+   56 expression: ID • LPAREN arg_list_opt RPAREN
+
+    LPAREN  deslocar, e ir ao estado 36
+
+    $padrão  reduzir usando a regra 39 (lvalue)
+
+
+Estado 26
+
+   41 expression: NUMBER •
+
+    $padrão  reduzir usando a regra 41 (expression)
+
+
+Estado 27
+
+   43 expression: STRING •
+
+    $padrão  reduzir usando a regra 43 (expression)
+
+
+Estado 28
+
+   57 expression: LEN • LPAREN expression RPAREN
+
+    LPAREN  deslocar, e ir ao estado 37
+
+
+Estado 29
+
+   44 expression: LPAREN • expression RPAREN
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 38
+
+
+Estado 30
+
+   55 expression: SUBTRACTION • expression
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 39
+
+
+Estado 31
+
+   40 lvalue: lvalue • LBRACKET expression RBRACKET
+   42 expression: lvalue •
+
+    LBRACKET  deslocar, e ir ao estado 40
+
+    $padrão  reduzir usando a regra 42 (expression)
+
+
+Estado 32
+
+   27 decl: type COLON ID ASSIGNMENT expression •
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    EQUALS          deslocar, e ir ao estado 41
+    SMALLEREQUALS   deslocar, e ir ao estado 42
+    BIGGEREQUALS    deslocar, e ir ao estado 43
+    SMALLER         deslocar, e ir ao estado 44
+    BIGGER          deslocar, e ir ao estado 45
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+    $padrão  reduzir usando a regra 27 (decl)
+
+
+Estado 33
+
+   34 param: type COLON • ID
+
+    ID  deslocar, e ir ao estado 51
+
+
+Estado 34
+
+    7 fun: FUN type ID LPAREN list_param_opt RPAREN • LBRACE list_stmt RBRACE
+
+    LBRACE  deslocar, e ir ao estado 52
+
+
+Estado 35
+
+   33 list_param: param COMMA • list_param
+
+    TYPE  deslocar, e ir ao estado 1
+
+    type        ir ao estado 21
+    list_param  ir ao estado 53
+    param       ir ao estado 24
+
+
+Estado 36
+
+   56 expression: ID LPAREN • arg_list_opt RPAREN
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    $padrão  reduzir usando a regra 58 (arg_list_opt)
+
+    lvalue        ir ao estado 31
+    expression    ir ao estado 54
+    arg_list_opt  ir ao estado 55
+    arg_list      ir ao estado 56
+
+
+Estado 37
+
+   57 expression: LEN LPAREN • expression RPAREN
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 57
+
+
+Estado 38
+
+   44 expression: LPAREN expression • RPAREN
+   45           | expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    RPAREN          deslocar, e ir ao estado 58
+    EQUALS          deslocar, e ir ao estado 41
+    SMALLEREQUALS   deslocar, e ir ao estado 42
+    BIGGEREQUALS    deslocar, e ir ao estado 43
+    SMALLER         deslocar, e ir ao estado 44
+    BIGGER          deslocar, e ir ao estado 45
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+
+Estado 39
+
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+   55           | SUBTRACTION expression •
+
+    $padrão  reduzir usando a regra 55 (expression)
+
+
+Estado 40
+
+   40 lvalue: lvalue LBRACKET • expression RBRACKET
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 59
+
+
+Estado 41
+
+   54 expression: expression EQUALS • expression
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 60
+
+
+Estado 42
+
+   52 expression: expression SMALLEREQUALS • expression
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 61
+
+
+Estado 43
+
+   53 expression: expression BIGGEREQUALS • expression
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 62
+
+
+Estado 44
+
+   50 expression: expression SMALLER • expression
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 63
+
+
+Estado 45
+
+   51 expression: expression BIGGER • expression
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 64
+
+
+Estado 46
+
+   49 expression: expression EXPONENTIATION • expression
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 65
+
+
+Estado 47
+
+   47 expression: expression MULTIPLICATION • expression
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 66
+
+
+Estado 48
+
+   48 expression: expression DIVISION • expression
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 67
+
+
+Estado 49
+
+   45 expression: expression ADDITION • expression
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 68
+
+
+Estado 50
+
+   46 expression: expression SUBTRACTION • expression
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 69
+
+
+Estado 51
+
+   34 param: type COLON ID •
+
+    $padrão  reduzir usando a regra 34 (param)
+
+
+Estado 52
+
+    7 fun: FUN type ID LPAREN list_param_opt RPAREN LBRACE • list_stmt RBRACE
+
+    ID           deslocar, e ir ao estado 25
+    TYPE         deslocar, e ir ao estado 1
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    WHILE        deslocar, e ir ao estado 70
+    FOR          deslocar, e ir ao estado 71
+    IF           deslocar, e ir ao estado 72
+    LEN          deslocar, e ir ao estado 28
+    RETURN       deslocar, e ir ao estado 73
+    LPAREN       deslocar, e ir ao estado 29
+    NEWLINE      deslocar, e ir ao estado 74
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    list_stmt      ir ao estado 75
+    stmt           ir ao estado 76
+    simple_stmt    ir ao estado 77
+    compound_stmt  ir ao estado 78
+    while_stmt     ir ao estado 79
+    if_stmt        ir ao estado 80
+    for_stmt       ir ao estado 81
+    decl           ir ao estado 82
+    type           ir ao estado 9
+    return_stmt    ir ao estado 83
+    assign_stmt    ir ao estado 84
+    lvalue         ir ao estado 85
+    expression     ir ao estado 86
+
+
+Estado 53
+
+   33 list_param: param COMMA list_param •
+
+    $padrão  reduzir usando a regra 33 (list_param)
+
+
+Estado 54
+
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+   60 arg_list: expression •
+
+    EQUALS          deslocar, e ir ao estado 41
+    SMALLEREQUALS   deslocar, e ir ao estado 42
+    BIGGEREQUALS    deslocar, e ir ao estado 43
+    SMALLER         deslocar, e ir ao estado 44
+    BIGGER          deslocar, e ir ao estado 45
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+    $padrão  reduzir usando a regra 60 (arg_list)
+
+
+Estado 55
+
+   56 expression: ID LPAREN arg_list_opt • RPAREN
+
+    RPAREN  deslocar, e ir ao estado 87
+
+
+Estado 56
+
+   59 arg_list_opt: arg_list •
+   61 arg_list: arg_list • COMMA expression
+
+    COMMA  deslocar, e ir ao estado 88
+
+    $padrão  reduzir usando a regra 59 (arg_list_opt)
+
+
+Estado 57
+
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+   57           | LEN LPAREN expression • RPAREN
+
+    RPAREN          deslocar, e ir ao estado 89
+    EQUALS          deslocar, e ir ao estado 41
+    SMALLEREQUALS   deslocar, e ir ao estado 42
+    BIGGEREQUALS    deslocar, e ir ao estado 43
+    SMALLER         deslocar, e ir ao estado 44
+    BIGGER          deslocar, e ir ao estado 45
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+
+Estado 58
+
+   44 expression: LPAREN expression RPAREN •
+
+    $padrão  reduzir usando a regra 44 (expression)
+
+
+Estado 59
+
+   40 lvalue: lvalue LBRACKET expression • RBRACKET
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    RBRACKET        deslocar, e ir ao estado 90
+    EQUALS          deslocar, e ir ao estado 41
+    SMALLEREQUALS   deslocar, e ir ao estado 42
+    BIGGEREQUALS    deslocar, e ir ao estado 43
+    SMALLER         deslocar, e ir ao estado 44
+    BIGGER          deslocar, e ir ao estado 45
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+
+Estado 60
+
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+   54           | expression EQUALS expression •
+
+    SMALLEREQUALS   deslocar, e ir ao estado 42
+    BIGGEREQUALS    deslocar, e ir ao estado 43
+    SMALLER         deslocar, e ir ao estado 44
+    BIGGER          deslocar, e ir ao estado 45
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+    $padrão  reduzir usando a regra 54 (expression)
+
+
+Estado 61
+
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   52           | expression SMALLEREQUALS expression •
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+    $padrão  reduzir usando a regra 52 (expression)
+
+
+Estado 62
+
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   53           | expression BIGGEREQUALS expression •
+   54           | expression • EQUALS expression
+
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+    $padrão  reduzir usando a regra 53 (expression)
+
+
+Estado 63
+
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   50           | expression SMALLER expression •
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+    $padrão  reduzir usando a regra 50 (expression)
+
+
+Estado 64
+
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   51           | expression BIGGER expression •
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+    $padrão  reduzir usando a regra 51 (expression)
+
+
+Estado 65
+
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   49           | expression EXPONENTIATION expression •
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    EXPONENTIATION  deslocar, e ir ao estado 46
+
+    $padrão  reduzir usando a regra 49 (expression)
+
+
+Estado 66
+
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   47           | expression MULTIPLICATION expression •
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    EXPONENTIATION  deslocar, e ir ao estado 46
+
+    $padrão  reduzir usando a regra 47 (expression)
+
+
+Estado 67
+
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   48           | expression DIVISION expression •
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    EXPONENTIATION  deslocar, e ir ao estado 46
+
+    $padrão  reduzir usando a regra 48 (expression)
+
+
+Estado 68
+
+   45 expression: expression • ADDITION expression
+   45           | expression ADDITION expression •
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+
+    $padrão  reduzir usando a regra 45 (expression)
+
+
+Estado 69
+
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   46           | expression SUBTRACTION expression •
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+
+    $padrão  reduzir usando a regra 46 (expression)
+
+
+Estado 70
+
+   20 while_stmt: WHILE • LPAREN expression RPAREN LBRACE list_stmt RBRACE
+
+    LPAREN  deslocar, e ir ao estado 91
+
+
+Estado 71
+
+   23 for_stmt: FOR • LPAREN for_init SEMICOLON expression SEMICOLON assign_stmt RPAREN LBRACE list_stmt RBRACE
+
+    LPAREN  deslocar, e ir ao estado 92
+
+
+Estado 72
+
+   21 if_stmt: IF • LPAREN expression RPAREN LBRACE list_stmt RBRACE
+   22        | IF • LPAREN expression RPAREN LBRACE list_stmt RBRACE ELSE LBRACE list_stmt RBRACE
+
+    LPAREN  deslocar, e ir ao estado 93
+
+
+Estado 73
+
+   35 return_stmt: RETURN • expression
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 94
+
+
+Estado 74
+
+   12 stmt: NEWLINE •
+
+    $padrão  reduzir usando a regra 12 (stmt)
+
+
+Estado 75
+
+    7 fun: FUN type ID LPAREN list_param_opt RPAREN LBRACE list_stmt • RBRACE
+    9 list_stmt: list_stmt • stmt
+
+    ID           deslocar, e ir ao estado 25
+    TYPE         deslocar, e ir ao estado 1
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    WHILE        deslocar, e ir ao estado 70
+    FOR          deslocar, e ir ao estado 71
+    IF           deslocar, e ir ao estado 72
+    LEN          deslocar, e ir ao estado 28
+    RETURN       deslocar, e ir ao estado 73
+    LPAREN       deslocar, e ir ao estado 29
+    NEWLINE      deslocar, e ir ao estado 74
+    SUBTRACTION  deslocar, e ir ao estado 30
+    RBRACE       deslocar, e ir ao estado 95
+
+    stmt           ir ao estado 96
+    simple_stmt    ir ao estado 77
+    compound_stmt  ir ao estado 78
+    while_stmt     ir ao estado 79
+    if_stmt        ir ao estado 80
+    for_stmt       ir ao estado 81
+    decl           ir ao estado 82
+    type           ir ao estado 9
+    return_stmt    ir ao estado 83
+    assign_stmt    ir ao estado 84
+    lvalue         ir ao estado 85
+    expression     ir ao estado 86
+
+
+Estado 76
+
+    8 list_stmt: stmt •
+
+    $padrão  reduzir usando a regra 8 (list_stmt)
+
+
+Estado 77
+
+   10 stmt: simple_stmt •
+
+    $padrão  reduzir usando a regra 10 (stmt)
+
+
+Estado 78
+
+   11 stmt: compound_stmt •
+
+    $padrão  reduzir usando a regra 11 (stmt)
+
+
+Estado 79
+
+   19 compound_stmt: while_stmt •
+
+    $padrão  reduzir usando a regra 19 (compound_stmt)
+
+
+Estado 80
+
+   17 compound_stmt: if_stmt •
+
+    $padrão  reduzir usando a regra 17 (compound_stmt)
+
+
+Estado 81
+
+   18 compound_stmt: for_stmt •
+
+    $padrão  reduzir usando a regra 18 (compound_stmt)
+
+
+Estado 82
+
+   13 simple_stmt: decl • SEMICOLON
+
+    SEMICOLON  deslocar, e ir ao estado 97
+
+
+Estado 83
+
+   15 simple_stmt: return_stmt • SEMICOLON
+
+    SEMICOLON  deslocar, e ir ao estado 98
+
+
+Estado 84
+
+   14 simple_stmt: assign_stmt • SEMICOLON
+
+    SEMICOLON  deslocar, e ir ao estado 99
+
+
+Estado 85
+
+   36 assign_stmt: lvalue • ASSIGNMENT expression
+   37            | lvalue • INCREMENT
+   38            | lvalue • DECREMENT
+   40 lvalue: lvalue • LBRACKET expression RBRACKET
+   42 expression: lvalue •
+
+    LBRACKET    deslocar, e ir ao estado 40
+    ASSIGNMENT  deslocar, e ir ao estado 100
+    INCREMENT   deslocar, e ir ao estado 101
+    DECREMENT   deslocar, e ir ao estado 102
+
+    $padrão  reduzir usando a regra 42 (expression)
+
+
+Estado 86
+
+   16 simple_stmt: expression • SEMICOLON
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    SEMICOLON       deslocar, e ir ao estado 103
+    EQUALS          deslocar, e ir ao estado 41
+    SMALLEREQUALS   deslocar, e ir ao estado 42
+    BIGGEREQUALS    deslocar, e ir ao estado 43
+    SMALLER         deslocar, e ir ao estado 44
+    BIGGER          deslocar, e ir ao estado 45
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+
+Estado 87
+
+   56 expression: ID LPAREN arg_list_opt RPAREN •
+
+    $padrão  reduzir usando a regra 56 (expression)
+
+
+Estado 88
+
+   61 arg_list: arg_list COMMA • expression
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 104
+
+
+Estado 89
+
+   57 expression: LEN LPAREN expression RPAREN •
+
+    $padrão  reduzir usando a regra 57 (expression)
+
+
+Estado 90
+
+   40 lvalue: lvalue LBRACKET expression RBRACKET •
+
+    $padrão  reduzir usando a regra 40 (lvalue)
+
+
+Estado 91
+
+   20 while_stmt: WHILE LPAREN • expression RPAREN LBRACE list_stmt RBRACE
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 105
+
+
+Estado 92
+
+   23 for_stmt: FOR LPAREN • for_init SEMICOLON expression SEMICOLON assign_stmt RPAREN LBRACE list_stmt RBRACE
+
+    ID    deslocar, e ir ao estado 106
+    TYPE  deslocar, e ir ao estado 1
+
+    for_init     ir ao estado 107
+    decl         ir ao estado 108
+    type         ir ao estado 9
+    assign_stmt  ir ao estado 109
+    lvalue       ir ao estado 110
+
+
+Estado 93
+
+   21 if_stmt: IF LPAREN • expression RPAREN LBRACE list_stmt RBRACE
+   22        | IF LPAREN • expression RPAREN LBRACE list_stmt RBRACE ELSE LBRACE list_stmt RBRACE
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 111
+
+
+Estado 94
+
+   35 return_stmt: RETURN expression •
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    EQUALS          deslocar, e ir ao estado 41
+    SMALLEREQUALS   deslocar, e ir ao estado 42
+    BIGGEREQUALS    deslocar, e ir ao estado 43
+    SMALLER         deslocar, e ir ao estado 44
+    BIGGER          deslocar, e ir ao estado 45
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+    $padrão  reduzir usando a regra 35 (return_stmt)
+
+
+Estado 95
+
+    7 fun: FUN type ID LPAREN list_param_opt RPAREN LBRACE list_stmt RBRACE •
+
+    $padrão  reduzir usando a regra 7 (fun)
+
+
+Estado 96
+
+    9 list_stmt: list_stmt stmt •
+
+    $padrão  reduzir usando a regra 9 (list_stmt)
+
+
+Estado 97
+
+   13 simple_stmt: decl SEMICOLON •
+
+    $padrão  reduzir usando a regra 13 (simple_stmt)
+
+
+Estado 98
+
+   15 simple_stmt: return_stmt SEMICOLON •
+
+    $padrão  reduzir usando a regra 15 (simple_stmt)
+
+
+Estado 99
+
+   14 simple_stmt: assign_stmt SEMICOLON •
+
+    $padrão  reduzir usando a regra 14 (simple_stmt)
+
+
+Estado 100
+
+   36 assign_stmt: lvalue ASSIGNMENT • expression
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 112
+
+
+Estado 101
+
+   37 assign_stmt: lvalue INCREMENT •
+
+    $padrão  reduzir usando a regra 37 (assign_stmt)
+
+
+Estado 102
+
+   38 assign_stmt: lvalue DECREMENT •
+
+    $padrão  reduzir usando a regra 38 (assign_stmt)
+
+
+Estado 103
+
+   16 simple_stmt: expression SEMICOLON •
+
+    $padrão  reduzir usando a regra 16 (simple_stmt)
+
+
+Estado 104
+
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+   61 arg_list: arg_list COMMA expression •
+
+    EQUALS          deslocar, e ir ao estado 41
+    SMALLEREQUALS   deslocar, e ir ao estado 42
+    BIGGEREQUALS    deslocar, e ir ao estado 43
+    SMALLER         deslocar, e ir ao estado 44
+    BIGGER          deslocar, e ir ao estado 45
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+    $padrão  reduzir usando a regra 61 (arg_list)
+
+
+Estado 105
+
+   20 while_stmt: WHILE LPAREN expression • RPAREN LBRACE list_stmt RBRACE
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    RPAREN          deslocar, e ir ao estado 113
+    EQUALS          deslocar, e ir ao estado 41
+    SMALLEREQUALS   deslocar, e ir ao estado 42
+    BIGGEREQUALS    deslocar, e ir ao estado 43
+    SMALLER         deslocar, e ir ao estado 44
+    BIGGER          deslocar, e ir ao estado 45
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+
+Estado 106
+
+   39 lvalue: ID •
+
+    $padrão  reduzir usando a regra 39 (lvalue)
+
+
+Estado 107
+
+   23 for_stmt: FOR LPAREN for_init • SEMICOLON expression SEMICOLON assign_stmt RPAREN LBRACE list_stmt RBRACE
+
+    SEMICOLON  deslocar, e ir ao estado 114
+
+
+Estado 108
+
+   24 for_init: decl •
+
+    $padrão  reduzir usando a regra 24 (for_init)
+
+
+Estado 109
+
+   25 for_init: assign_stmt •
+
+    $padrão  reduzir usando a regra 25 (for_init)
+
+
+Estado 110
+
+   36 assign_stmt: lvalue • ASSIGNMENT expression
+   37            | lvalue • INCREMENT
+   38            | lvalue • DECREMENT
+   40 lvalue: lvalue • LBRACKET expression RBRACKET
+
+    LBRACKET    deslocar, e ir ao estado 40
+    ASSIGNMENT  deslocar, e ir ao estado 100
+    INCREMENT   deslocar, e ir ao estado 101
+    DECREMENT   deslocar, e ir ao estado 102
+
+
+Estado 111
+
+   21 if_stmt: IF LPAREN expression • RPAREN LBRACE list_stmt RBRACE
+   22        | IF LPAREN expression • RPAREN LBRACE list_stmt RBRACE ELSE LBRACE list_stmt RBRACE
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    RPAREN          deslocar, e ir ao estado 115
+    EQUALS          deslocar, e ir ao estado 41
+    SMALLEREQUALS   deslocar, e ir ao estado 42
+    BIGGEREQUALS    deslocar, e ir ao estado 43
+    SMALLER         deslocar, e ir ao estado 44
+    BIGGER          deslocar, e ir ao estado 45
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+
+Estado 112
+
+   36 assign_stmt: lvalue ASSIGNMENT expression •
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    EQUALS          deslocar, e ir ao estado 41
+    SMALLEREQUALS   deslocar, e ir ao estado 42
+    BIGGEREQUALS    deslocar, e ir ao estado 43
+    SMALLER         deslocar, e ir ao estado 44
+    BIGGER          deslocar, e ir ao estado 45
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+    $padrão  reduzir usando a regra 36 (assign_stmt)
+
+
+Estado 113
+
+   20 while_stmt: WHILE LPAREN expression RPAREN • LBRACE list_stmt RBRACE
+
+    LBRACE  deslocar, e ir ao estado 116
+
+
+Estado 114
+
+   23 for_stmt: FOR LPAREN for_init SEMICOLON • expression SEMICOLON assign_stmt RPAREN LBRACE list_stmt RBRACE
+
+    ID           deslocar, e ir ao estado 25
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    LEN          deslocar, e ir ao estado 28
+    LPAREN       deslocar, e ir ao estado 29
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    lvalue      ir ao estado 31
+    expression  ir ao estado 117
+
+
+Estado 115
+
+   21 if_stmt: IF LPAREN expression RPAREN • LBRACE list_stmt RBRACE
+   22        | IF LPAREN expression RPAREN • LBRACE list_stmt RBRACE ELSE LBRACE list_stmt RBRACE
+
+    LBRACE  deslocar, e ir ao estado 118
+
+
+Estado 116
+
+   20 while_stmt: WHILE LPAREN expression RPAREN LBRACE • list_stmt RBRACE
+
+    ID           deslocar, e ir ao estado 25
+    TYPE         deslocar, e ir ao estado 1
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    WHILE        deslocar, e ir ao estado 70
+    FOR          deslocar, e ir ao estado 71
+    IF           deslocar, e ir ao estado 72
+    LEN          deslocar, e ir ao estado 28
+    RETURN       deslocar, e ir ao estado 73
+    LPAREN       deslocar, e ir ao estado 29
+    NEWLINE      deslocar, e ir ao estado 74
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    list_stmt      ir ao estado 119
+    stmt           ir ao estado 76
+    simple_stmt    ir ao estado 77
+    compound_stmt  ir ao estado 78
+    while_stmt     ir ao estado 79
+    if_stmt        ir ao estado 80
+    for_stmt       ir ao estado 81
+    decl           ir ao estado 82
+    type           ir ao estado 9
+    return_stmt    ir ao estado 83
+    assign_stmt    ir ao estado 84
+    lvalue         ir ao estado 85
+    expression     ir ao estado 86
+
+
+Estado 117
+
+   23 for_stmt: FOR LPAREN for_init SEMICOLON expression • SEMICOLON assign_stmt RPAREN LBRACE list_stmt RBRACE
+   45 expression: expression • ADDITION expression
+   46           | expression • SUBTRACTION expression
+   47           | expression • MULTIPLICATION expression
+   48           | expression • DIVISION expression
+   49           | expression • EXPONENTIATION expression
+   50           | expression • SMALLER expression
+   51           | expression • BIGGER expression
+   52           | expression • SMALLEREQUALS expression
+   53           | expression • BIGGEREQUALS expression
+   54           | expression • EQUALS expression
+
+    SEMICOLON       deslocar, e ir ao estado 120
+    EQUALS          deslocar, e ir ao estado 41
+    SMALLEREQUALS   deslocar, e ir ao estado 42
+    BIGGEREQUALS    deslocar, e ir ao estado 43
+    SMALLER         deslocar, e ir ao estado 44
+    BIGGER          deslocar, e ir ao estado 45
+    EXPONENTIATION  deslocar, e ir ao estado 46
+    MULTIPLICATION  deslocar, e ir ao estado 47
+    DIVISION        deslocar, e ir ao estado 48
+    ADDITION        deslocar, e ir ao estado 49
+    SUBTRACTION     deslocar, e ir ao estado 50
+
+
+Estado 118
+
+   21 if_stmt: IF LPAREN expression RPAREN LBRACE • list_stmt RBRACE
+   22        | IF LPAREN expression RPAREN LBRACE • list_stmt RBRACE ELSE LBRACE list_stmt RBRACE
+
+    ID           deslocar, e ir ao estado 25
+    TYPE         deslocar, e ir ao estado 1
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    WHILE        deslocar, e ir ao estado 70
+    FOR          deslocar, e ir ao estado 71
+    IF           deslocar, e ir ao estado 72
+    LEN          deslocar, e ir ao estado 28
+    RETURN       deslocar, e ir ao estado 73
+    LPAREN       deslocar, e ir ao estado 29
+    NEWLINE      deslocar, e ir ao estado 74
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    list_stmt      ir ao estado 121
+    stmt           ir ao estado 76
+    simple_stmt    ir ao estado 77
+    compound_stmt  ir ao estado 78
+    while_stmt     ir ao estado 79
+    if_stmt        ir ao estado 80
+    for_stmt       ir ao estado 81
+    decl           ir ao estado 82
+    type           ir ao estado 9
+    return_stmt    ir ao estado 83
+    assign_stmt    ir ao estado 84
+    lvalue         ir ao estado 85
+    expression     ir ao estado 86
+
+
+Estado 119
+
+    9 list_stmt: list_stmt • stmt
+   20 while_stmt: WHILE LPAREN expression RPAREN LBRACE list_stmt • RBRACE
+
+    ID           deslocar, e ir ao estado 25
+    TYPE         deslocar, e ir ao estado 1
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    WHILE        deslocar, e ir ao estado 70
+    FOR          deslocar, e ir ao estado 71
+    IF           deslocar, e ir ao estado 72
+    LEN          deslocar, e ir ao estado 28
+    RETURN       deslocar, e ir ao estado 73
+    LPAREN       deslocar, e ir ao estado 29
+    NEWLINE      deslocar, e ir ao estado 74
+    SUBTRACTION  deslocar, e ir ao estado 30
+    RBRACE       deslocar, e ir ao estado 122
+
+    stmt           ir ao estado 96
+    simple_stmt    ir ao estado 77
+    compound_stmt  ir ao estado 78
+    while_stmt     ir ao estado 79
+    if_stmt        ir ao estado 80
+    for_stmt       ir ao estado 81
+    decl           ir ao estado 82
+    type           ir ao estado 9
+    return_stmt    ir ao estado 83
+    assign_stmt    ir ao estado 84
+    lvalue         ir ao estado 85
+    expression     ir ao estado 86
+
+
+Estado 120
+
+   23 for_stmt: FOR LPAREN for_init SEMICOLON expression SEMICOLON • assign_stmt RPAREN LBRACE list_stmt RBRACE
+
+    ID  deslocar, e ir ao estado 106
+
+    assign_stmt  ir ao estado 123
+    lvalue       ir ao estado 110
+
+
+Estado 121
+
+    9 list_stmt: list_stmt • stmt
+   21 if_stmt: IF LPAREN expression RPAREN LBRACE list_stmt • RBRACE
+   22        | IF LPAREN expression RPAREN LBRACE list_stmt • RBRACE ELSE LBRACE list_stmt RBRACE
+
+    ID           deslocar, e ir ao estado 25
+    TYPE         deslocar, e ir ao estado 1
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    WHILE        deslocar, e ir ao estado 70
+    FOR          deslocar, e ir ao estado 71
+    IF           deslocar, e ir ao estado 72
+    LEN          deslocar, e ir ao estado 28
+    RETURN       deslocar, e ir ao estado 73
+    LPAREN       deslocar, e ir ao estado 29
+    NEWLINE      deslocar, e ir ao estado 74
+    SUBTRACTION  deslocar, e ir ao estado 30
+    RBRACE       deslocar, e ir ao estado 124
+
+    stmt           ir ao estado 96
+    simple_stmt    ir ao estado 77
+    compound_stmt  ir ao estado 78
+    while_stmt     ir ao estado 79
+    if_stmt        ir ao estado 80
+    for_stmt       ir ao estado 81
+    decl           ir ao estado 82
+    type           ir ao estado 9
+    return_stmt    ir ao estado 83
+    assign_stmt    ir ao estado 84
+    lvalue         ir ao estado 85
+    expression     ir ao estado 86
+
+
+Estado 122
+
+   20 while_stmt: WHILE LPAREN expression RPAREN LBRACE list_stmt RBRACE •
+
+    $padrão  reduzir usando a regra 20 (while_stmt)
+
+
+Estado 123
+
+   23 for_stmt: FOR LPAREN for_init SEMICOLON expression SEMICOLON assign_stmt • RPAREN LBRACE list_stmt RBRACE
+
+    RPAREN  deslocar, e ir ao estado 125
+
+
+Estado 124
+
+   21 if_stmt: IF LPAREN expression RPAREN LBRACE list_stmt RBRACE •
+   22        | IF LPAREN expression RPAREN LBRACE list_stmt RBRACE • ELSE LBRACE list_stmt RBRACE
+
+    ELSE  deslocar, e ir ao estado 126
+
+    $padrão  reduzir usando a regra 21 (if_stmt)
+
+
+Estado 125
+
+   23 for_stmt: FOR LPAREN for_init SEMICOLON expression SEMICOLON assign_stmt RPAREN • LBRACE list_stmt RBRACE
+
+    LBRACE  deslocar, e ir ao estado 127
+
+
+Estado 126
+
+   22 if_stmt: IF LPAREN expression RPAREN LBRACE list_stmt RBRACE ELSE • LBRACE list_stmt RBRACE
+
+    LBRACE  deslocar, e ir ao estado 128
+
+
+Estado 127
+
+   23 for_stmt: FOR LPAREN for_init SEMICOLON expression SEMICOLON assign_stmt RPAREN LBRACE • list_stmt RBRACE
+
+    ID           deslocar, e ir ao estado 25
+    TYPE         deslocar, e ir ao estado 1
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    WHILE        deslocar, e ir ao estado 70
+    FOR          deslocar, e ir ao estado 71
+    IF           deslocar, e ir ao estado 72
+    LEN          deslocar, e ir ao estado 28
+    RETURN       deslocar, e ir ao estado 73
+    LPAREN       deslocar, e ir ao estado 29
+    NEWLINE      deslocar, e ir ao estado 74
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    list_stmt      ir ao estado 129
+    stmt           ir ao estado 76
+    simple_stmt    ir ao estado 77
+    compound_stmt  ir ao estado 78
+    while_stmt     ir ao estado 79
+    if_stmt        ir ao estado 80
+    for_stmt       ir ao estado 81
+    decl           ir ao estado 82
+    type           ir ao estado 9
+    return_stmt    ir ao estado 83
+    assign_stmt    ir ao estado 84
+    lvalue         ir ao estado 85
+    expression     ir ao estado 86
+
+
+Estado 128
+
+   22 if_stmt: IF LPAREN expression RPAREN LBRACE list_stmt RBRACE ELSE LBRACE • list_stmt RBRACE
+
+    ID           deslocar, e ir ao estado 25
+    TYPE         deslocar, e ir ao estado 1
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    WHILE        deslocar, e ir ao estado 70
+    FOR          deslocar, e ir ao estado 71
+    IF           deslocar, e ir ao estado 72
+    LEN          deslocar, e ir ao estado 28
+    RETURN       deslocar, e ir ao estado 73
+    LPAREN       deslocar, e ir ao estado 29
+    NEWLINE      deslocar, e ir ao estado 74
+    SUBTRACTION  deslocar, e ir ao estado 30
+
+    list_stmt      ir ao estado 130
+    stmt           ir ao estado 76
+    simple_stmt    ir ao estado 77
+    compound_stmt  ir ao estado 78
+    while_stmt     ir ao estado 79
+    if_stmt        ir ao estado 80
+    for_stmt       ir ao estado 81
+    decl           ir ao estado 82
+    type           ir ao estado 9
+    return_stmt    ir ao estado 83
+    assign_stmt    ir ao estado 84
+    lvalue         ir ao estado 85
+    expression     ir ao estado 86
+
+
+Estado 129
+
+    9 list_stmt: list_stmt • stmt
+   23 for_stmt: FOR LPAREN for_init SEMICOLON expression SEMICOLON assign_stmt RPAREN LBRACE list_stmt • RBRACE
+
+    ID           deslocar, e ir ao estado 25
+    TYPE         deslocar, e ir ao estado 1
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    WHILE        deslocar, e ir ao estado 70
+    FOR          deslocar, e ir ao estado 71
+    IF           deslocar, e ir ao estado 72
+    LEN          deslocar, e ir ao estado 28
+    RETURN       deslocar, e ir ao estado 73
+    LPAREN       deslocar, e ir ao estado 29
+    NEWLINE      deslocar, e ir ao estado 74
+    SUBTRACTION  deslocar, e ir ao estado 30
+    RBRACE       deslocar, e ir ao estado 131
+
+    stmt           ir ao estado 96
+    simple_stmt    ir ao estado 77
+    compound_stmt  ir ao estado 78
+    while_stmt     ir ao estado 79
+    if_stmt        ir ao estado 80
+    for_stmt       ir ao estado 81
+    decl           ir ao estado 82
+    type           ir ao estado 9
+    return_stmt    ir ao estado 83
+    assign_stmt    ir ao estado 84
+    lvalue         ir ao estado 85
+    expression     ir ao estado 86
+
+
+Estado 130
+
+    9 list_stmt: list_stmt • stmt
+   22 if_stmt: IF LPAREN expression RPAREN LBRACE list_stmt RBRACE ELSE LBRACE list_stmt • RBRACE
+
+    ID           deslocar, e ir ao estado 25
+    TYPE         deslocar, e ir ao estado 1
+    NUMBER       deslocar, e ir ao estado 26
+    STRING       deslocar, e ir ao estado 27
+    WHILE        deslocar, e ir ao estado 70
+    FOR          deslocar, e ir ao estado 71
+    IF           deslocar, e ir ao estado 72
+    LEN          deslocar, e ir ao estado 28
+    RETURN       deslocar, e ir ao estado 73
+    LPAREN       deslocar, e ir ao estado 29
+    NEWLINE      deslocar, e ir ao estado 74
+    SUBTRACTION  deslocar, e ir ao estado 30
+    RBRACE       deslocar, e ir ao estado 132
+
+    stmt           ir ao estado 96
+    simple_stmt    ir ao estado 77
+    compound_stmt  ir ao estado 78
+    while_stmt     ir ao estado 79
+    if_stmt        ir ao estado 80
+    for_stmt       ir ao estado 81
+    decl           ir ao estado 82
+    type           ir ao estado 9
+    return_stmt    ir ao estado 83
+    assign_stmt    ir ao estado 84
+    lvalue         ir ao estado 85
+    expression     ir ao estado 86
+
+
+Estado 131
+
+   23 for_stmt: FOR LPAREN for_init SEMICOLON expression SEMICOLON assign_stmt RPAREN LBRACE list_stmt RBRACE •
+
+    $padrão  reduzir usando a regra 23 (for_stmt)
+
+
+Estado 132
+
+   22 if_stmt: IF LPAREN expression RPAREN LBRACE list_stmt RBRACE ELSE LBRACE list_stmt RBRACE •
+
+    $padrão  reduzir usando a regra 22 (if_stmt)
