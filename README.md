@@ -1,6 +1,6 @@
 # Penelope
 
-Penelope é uma proposta de linguagem de programação alto nível
+Penelope é uma proposta de linguagem de programação no contexto da disciplina de engenharia de linguagens. No repositório encontra-se o analisador lexico e o síntatico, parser, e tem como objetivo traduzir os códigos penelope para C.
 
 ## Como executar
 
@@ -64,3 +64,9 @@ Você pode analisar qualquer arquivo de código Penelope usando:
 ```bash
 ./penelope_parser seu_arquivo.txt
 ```
+
+<br>Autores:<br>
+<a href="https://github.com/JoabUrbano">Joab Urbano</a><br>
+<a href="https://github.com/luizgustavoou">Luiz Gustavo</a><br>
+<a href="https://github.com/Jorgelino328">Jorge William</a><br>
+<a href="https://github.com/Gustavobiz">Gustavo Sousa</a><br>
