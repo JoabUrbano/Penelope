@@ -7,7 +7,18 @@ lex.yy.c
 # Arquivos gerados pelo Bison
 parser.tab.c
 parser.tab.h
+parser.output
+parser.gv
 
 # Executáveis compilados
 analisador_lexico
 penelope_parser
+
+# Arquivos de saída e temporários
+*.o
+*.out
+saida.txt
+
+# Arquivos de debug
+*.dSYM/
+core

@@ -11,11 +11,13 @@
 
 "fun"                { return FUN; }
 (int|float|void|any|string|bool) { yylval.str = strdup(yytext); return TYPE; }
+"true"|"false"       { yylval.str = strdup(yytext); return ID; }
 "while"              { return WHILE; }
 "for"                { return FOR; }
 "if"                 { return IF; }
 "else"               { return ELSE; }
 "len"                { return LEN; }
+"print"              { return PRINT; }
 "return"             { return RETURN; }
 
 "{"                  { return LBRACE; }
@@ -42,7 +44,8 @@
 "+"                  { return ADDITION; }
 "-"                  { return SUBTRACTION; }
 
-[0-9]+               { yylval.str = strdup(yytext); return NUMBER; }
+[0-9]+\.[0-9]+       { yylval.num = atof(yytext); return NUMBER; }
+[0-9]+               { yylval.num = atof(yytext); return NUMBER; }
 
 [a-zA-Z_][a-zA-Z0-9_]* { yylval.str = strdup(yytext); return ID; }
 

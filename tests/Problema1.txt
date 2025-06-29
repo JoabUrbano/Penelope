@@ -1,0 +1,16 @@
+fun void main() {
+    // Valores previamente armazenados no código-fonte
+    float: x = 3.5;    // número racional x
+    float: y = 2.8;    // número racional y
+    int: c = 5;        // número inteiro c
+    
+    // Calcula a expressão x² - y + c
+    float: resultado = (x ** 2) - y + c;
+    
+    // Imprime o resultado na tela usando múltiplos argumentos
+    print("Resultado da expressão x² - y + c:");
+    print("x =", x);
+    print("y =", y);
+    print("c =", c);
+    print("x² - y + c =", resultado);
+}
