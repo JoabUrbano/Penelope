@@ -2,12 +2,61 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "./utils/hashMap/hashMap.h"
 #include "./utils/uniqueIdentifier/uniqueIdentifier.h"
 
 HashMap symbolTable = { NULL };
+HashMap valueTable = { NULL };  // Store actual values
 char *currentScope = NULL;
+
+double evaluate_number(char *str) {
+    return atof(str);
+}
+
+void print_value(double value) {
+    printf("%.2f\n", value);
+}
+
+void print_string(char *str) {
+    // Remove quotes from string literals
+    if (str && str[0] == '"' && str[strlen(str)-1] == '"') {
+        str[strlen(str)-1] = '\0';  // Remove ending quote
+        printf("%s\n", str + 1);   // Skip beginning quote
+    } else if (str) {
+        printf("%s\n", str);
+    }
+}
+
+double power_operation(double base, double exponent) {
+    return pow(base, exponent);
+}
+
+void store_variable_value(char *name, double value) {
+    char *fullKey = malloc(strlen(currentScope) + strlen(name) + 2);
+    sprintf(fullKey, "%s#%s", currentScope, name);
+    
+    char *valueStr = malloc(32);
+    sprintf(valueStr, "%.10g", value);
+    insert_node(&valueTable, fullKey, valueStr);
+    
+    free(fullKey);
+    free(valueStr);
+}
+
+double get_variable_value(char *name) {
+    char *fullKey = malloc(strlen(currentScope) + strlen(name) + 2);
+    sprintf(fullKey, "%s#%s", currentScope, name);
+    
+    Node *node = find_node(&valueTable, fullKey);
+    free(fullKey);
+    
+    if (node) {
+        return atof(node->value);
+    }
+    return 0.0; // Default value if not found
+}
 
 extern int yylex();
 extern int yyparse();
@@ -17,11 +66,13 @@ void yyerror(const char* s);
 
 %union {
     char *str;
+    double num;
 }
 
-%token <str> ID TYPE NUMBER STRING
+%token <str> ID TYPE STRING
+%token <num> NUMBER
 
-%token FUN WHILE FOR IF ELSE LEN RETURN
+%token FUN WHILE FOR IF ELSE LEN PRINT RETURN
 %token LBRACKET RBRACKET COMMA LPAREN RPAREN COLON SEMICOLON NEWLINE
 %token ASSIGNMENT EQUALS SMALLEREQUALS BIGGEREQUALS SMALLER BIGGER
 %token INCREMENT DECREMENT EXPONENTIATION MULTIPLICATION DIVISION ADDITION SUBTRACTION
@@ -29,7 +80,8 @@ void yyerror(const char* s);
 
 %define parse.trace
 
-%type <str> expression lvalue type list_expression
+%type <str> lvalue type list_expression
+%type <num> expression
 
 %right ASSIGNMENT
 %left EQUALS
@@ -82,6 +134,7 @@ simple_stmt:
     decl SEMICOLON
     | assign_stmt SEMICOLON
     | return_stmt SEMICOLON
+    | print_stmt SEMICOLON
     | expression SEMICOLON
     ;
 
@@ -114,12 +167,14 @@ decl:
           char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
           sprintf(fullKey, "%s#%s", currentScope, $3);
           insert_node(&symbolTable, fullKey, $1);
+          store_variable_value($3, 0.0); // Initialize with 0
           free(fullKey);
       }
     | type COLON ID ASSIGNMENT expression {
           char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
           sprintf(fullKey, "%s#%s", currentScope, $3);
           insert_node(&symbolTable, fullKey, $1);
+          store_variable_value($3, $5); // Store the computed value
           free(fullKey);
       }
 
@@ -151,10 +206,27 @@ return_stmt:
     RETURN expression
     ;
 
+print_stmt:
+    PRINT LPAREN expression RPAREN {
+        print_value($3);
+    }
+    | PRINT LPAREN STRING RPAREN {
+        print_string($3);
+    }
+    ;
+
 assign_stmt:
-    lvalue ASSIGNMENT expression
-    | lvalue INCREMENT
-    | lvalue DECREMENT
+    ID ASSIGNMENT expression {
+        store_variable_value($1, $3);
+    }
+    | ID INCREMENT {
+        double current = get_variable_value($1);
+        store_variable_value($1, current + 1.0);
+    }
+    | ID DECREMENT {
+        double current = get_variable_value($1);
+        store_variable_value($1, current - 1.0);
+    }
     ;
 
 lvalue:
@@ -164,23 +236,19 @@ lvalue:
 
 expression:
     NUMBER                                         { $$ = $1; }
-    | lvalue                                       { $$ = $1; }
-    | STRING                                       { $$ = $1; }
+    | ID                                           { $$ = get_variable_value($1); }
     | LPAREN expression RPAREN                     { $$ = $2; }
-    | expression ADDITION expression               { $$ = strdup("expr"); }
-    | expression SUBTRACTION expression            { $$ = strdup("expr"); }
-    | expression MULTIPLICATION expression         { $$ = strdup("expr"); }
-    | expression DIVISION expression               { $$ = strdup("expr"); }
-    | expression EXPONENTIATION expression         { $$ = strdup("expr"); }
-    | expression SMALLER expression                { $$ = strdup("expr"); }
-    | expression BIGGER expression                 { $$ = strdup("expr"); }
-    | expression SMALLEREQUALS expression          { $$ = strdup("expr"); }
-    | expression BIGGEREQUALS expression           { $$ = strdup("expr"); }
-    | expression EQUALS expression                 { $$ = strdup("expr"); }
-    | SUBTRACTION expression %prec UMINUS          { $$ = strdup("expr"); }
-    | ID LPAREN arg_list_opt RPAREN                { $$ = strdup("expr"); }
-    | LEN LPAREN expression RPAREN                 { $$ = strdup("expr"); }
-    | LBRACKET list_expression RBRACKET            { $$ = strdup("array_literal"); }
+    | expression ADDITION expression               { $$ = $1 + $3; }
+    | expression SUBTRACTION expression            { $$ = $1 - $3; }
+    | expression MULTIPLICATION expression         { $$ = $1 * $3; }
+    | expression DIVISION expression               { $$ = $1 / $3; }
+    | expression EXPONENTIATION expression         { $$ = power_operation($1, $3); }
+    | expression SMALLER expression                { $$ = ($1 < $3) ? 1.0 : 0.0; }
+    | expression BIGGER expression                 { $$ = ($1 > $3) ? 1.0 : 0.0; }
+    | expression SMALLEREQUALS expression          { $$ = ($1 <= $3) ? 1.0 : 0.0; }
+    | expression BIGGEREQUALS expression           { $$ = ($1 >= $3) ? 1.0 : 0.0; }
+    | expression EQUALS expression                 { $$ = ($1 == $3) ? 1.0 : 0.0; }
+    | SUBTRACTION expression %prec UMINUS          { $$ = -$2; }
     ;
 
 list_expression:
@@ -224,6 +292,7 @@ int main(int argc, char **argv) {
 
     print_map(&symbolTable);
     free_map(&symbolTable);
+    free_map(&valueTable);
 
     return 0;
 }

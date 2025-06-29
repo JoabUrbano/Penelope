@@ -8,7 +8,6 @@ fun void main() {
     float: resultado = (x ** 2) - y + c;
     
     // Imprime o resultado na tela
-    // Nota: usando print como função de saída (assumindo que existe)
     print("Resultado da expressão x² - y + c:");
     print("x = ");
     print(x);
