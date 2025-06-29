@@ -36,7 +36,7 @@ flex -o lex.yy.c lexerPenelope.I
 3. Compile o parser completo:
 
 ```bash
-gcc -o penelope_parser parser.tab.c lex.yy.c -lfl
+gcc -o penelope_parser parser.tab.c lex.yy.c hashMap.c -lfl
 ```
 
 ### Execução
