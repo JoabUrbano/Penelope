@@ -5,6 +5,8 @@
 
 #include "./utils/hashMap/hashMap.h"
 #include "./utils/uniqueIdentifier/uniqueIdentifier.h"
+#include "./semantica/semantica.h"
+
 
 HashMap symbolTable = { NULL };
 char *currentScope = NULL;

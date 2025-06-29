@@ -42,7 +42,8 @@
 "+"                  { return ADDITION; }
 "-"                  { return SUBTRACTION; }
 
-[0-9]+               { yylval.str = strdup(yytext); return NUMBER; }
+[0-9]+\.[0-9]+       { yylval.num = atof(yytext); return NUMBER; }
+[0-9]+               { yylval.num = atof(yytext); return NUMBER; }
 
 [a-zA-Z_][a-zA-Z0-9_]* { yylval.str = strdup(yytext); return ID; }
 
