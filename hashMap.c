@@ -1,68 +1,104 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <hashMap.h>
+#include "hashMap.h"
 
+Node* find_node(HashMap* map, char* key) {
+    Node* current = map->nodes;
+    while (current != NULL) {
+        if (strcmp(current->key, key) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
 
-void insert(HashMap* map, char* key, char* value) {
+void insert_node(HashMap* map, char* key, char* value) {
     Node* newNode = (Node*) malloc(sizeof(Node));
+
     newNode->key = strdup(key);
     newNode->value = strdup(value);
+    newNode->next = NULL;
 
-    map->nodes = (Node*) realloc(map->nodes, sizeof(Node) * (map->size + 1));
-    map->nodes[map->size] = *newNode;
-    map->size++;
+    if(map->nodes == NULL) {
+        map->nodes = newNode;
+    } else {
+        Node* existingNode = find_node(map, key);
 
-    free(newNode);
+        if(existingNode != NULL) {
+            existingNode->value = strdup(value);
+            free(newNode->key);
+            free(newNode->value);
+            free(newNode);
+            return;
+
+        }
+
+        Node* current = map->nodes;
+        while (current->next != NULL) {
+            current = current->next;
+        }
+        current->next = newNode;
+    }
 }
 
 void remove_node(HashMap* map, char* key) {
-    int index = -1;
+    Node* current = map->nodes;
+    Node* previous = NULL;
 
-    for (int i = 0; i < map->size; i++) {
-        if (strcmp(map->nodes[i].key, key) == 0) {
-            index = i;
-            break;
+    while (current != NULL) {
+        if (strcmp(current->key, key) == 0) {
+            if (previous == NULL) {
+                map->nodes = current->next;
+            } else {
+                previous->next = current->next;
+            }
+            free(current->key);
+            free(current->value);
+            free(current);
+            return;
         }
+        previous = current;
+        current = current->next;
     }
 
-    if (index == -1) {
-        printf("Chave '%s' não encontrada.\n", key);
-        return;
-    }
-
-    free(map->nodes[index].key);
-    free(map->nodes[index].value);
-
-    for (int i = index; i < map->size - 1; i++) {
-        map->nodes[i] = map->nodes[i + 1];
-    }
-
-    map->size--;
-    map->nodes = (Node*) realloc(map->nodes, sizeof(Node) * map->size);
+    printf("Chave '%s' não encontrada.\n", key);
 }
 
+
+
 void print_map(HashMap* map) {
-    printf("HashMap (%d items):\n", map->size);
-    for (int i = 0; i < map->size; i++) {
-        printf("  %s => %s\n", map->nodes[i].key, map->nodes[i].value);
+    Node* current = map->nodes;
+
+    printf("HashMap:\n");   
+    while (current != NULL) {
+        printf("  %s => %s\n", current->key, current->value);
+        current = current->next;
     }
 }
 
 void free_map(HashMap* map) {
-    for (int i = 0; i < map->size; i++) {
-        free(map->nodes[i].key);
-        free(map->nodes[i].value);
+    Node* current = map->nodes;
+    Node* nextNode;
+
+    while (current != NULL) {
+        nextNode = current->next;
+        free(current->key);
+        free(current->value);
+        free(current);
+        current = nextNode;
     }
-    free(map->nodes);
+    map->nodes = NULL;
 }
 
 int main(int argc, char **argv) {
-    HashMap map = { NULL, 0 };
+    HashMap map = { NULL };
 
-    insert(&map, "nome", "Luiz");
-    insert(&map, "curso", "TI");
-    insert(&map, "cidade", "Natal");
+    insert_node(&map, "nome", "Luiz");
+    insert_node(&map, "nome", "Luiz GUSTAVO");
+    insert_node(&map, "curso", "TI");
+    insert_node(&map, "cidade", "Natal");
 
     print_map(&map);
 
