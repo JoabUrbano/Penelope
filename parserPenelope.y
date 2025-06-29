@@ -3,6 +3,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "./utils/hashMap/hashMap.h"
+#include "./utils/uniqueIdentifier/uniqueIdentifier.h"
+
+HashMap symbolTable = { NULL };
+char *currentScope = NULL;
+
 extern int yylex();
 extern int yyparse();
 extern FILE* yyin;
@@ -56,8 +62,10 @@ decl_or_fun:
     ;
 
 fun:
-    FUN type ID LPAREN list_param_opt RPAREN LBRACE list_stmt RBRACE
-    ;
+    FUN type ID LPAREN list_param_opt RPAREN LBRACE {
+        if (currentScope) free(currentScope);
+        currentScope = uniqueIdentifier();
+    } list_stmt RBRACE
 
 list_stmt:
     stmt
@@ -102,9 +110,19 @@ for_init:
     ;
 
 decl:
-    type COLON ID
-    | type COLON ID ASSIGNMENT expression
-    ;
+      type COLON ID {
+          char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
+          sprintf(fullKey, "%s#%s", currentScope, $3);
+          insert_node(&symbolTable, fullKey, $1);
+          free(fullKey);
+      }
+    | type COLON ID ASSIGNMENT expression {
+          char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
+          sprintf(fullKey, "%s#%s", currentScope, $3);
+          insert_node(&symbolTable, fullKey, $1);
+          free(fullKey);
+      }
+
 
 type:
     TYPE                                { $$ = $1; }
@@ -203,6 +221,9 @@ int main(int argc, char **argv) {
     } else {
         printf("Falha na análise. Foi encontrado um erro de sintaxe.\n");
     }
+
+    print_map(&symbolTable);
+    free_map(&symbolTable);
 
     return 0;
 }
