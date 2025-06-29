@@ -4,8 +4,10 @@
 #include <string.h>
 
 #include "./utils/hashMap/hashMap.h"
+#include "./utils/uniqueIdentifier/uniqueIdentifier.h"
 
 HashMap symbolTable = { NULL };
+char *currentScope = NULL;
 
 extern int yylex();
 extern int yyparse();
@@ -60,8 +62,10 @@ decl_or_fun:
     ;
 
 fun:
-    FUN type ID LPAREN list_param_opt RPAREN LBRACE list_stmt RBRACE
-    ;
+    FUN type ID LPAREN list_param_opt RPAREN LBRACE {
+        if (currentScope) free(currentScope);
+        currentScope = uniqueIdentifier();
+    } list_stmt RBRACE
 
 list_stmt:
     stmt
@@ -106,13 +110,19 @@ for_init:
     ;
 
 decl:
-    type COLON ID {
-        insert_node(&symbolTable, $3, $1);
-    }
+      type COLON ID {
+          char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
+          sprintf(fullKey, "%s#%s", currentScope, $3);
+          insert_node(&symbolTable, fullKey, $1);
+          free(fullKey);
+      }
     | type COLON ID ASSIGNMENT expression {
-        insert_node(&symbolTable, $3, $1);
-    }
-    ;
+          char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
+          sprintf(fullKey, "%s#%s", currentScope, $3);
+          insert_node(&symbolTable, fullKey, $1);
+          free(fullKey);
+      }
+
 
 type:
     TYPE                                { $$ = $1; }
