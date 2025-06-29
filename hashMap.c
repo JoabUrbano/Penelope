@@ -98,21 +98,21 @@ void free_map(HashMap* map) {
     map->nodes = NULL;
 }
 
-int main(int argc, char **argv) {
-    HashMap map = { NULL };
+// int main(int argc, char **argv) {
+//     HashMap map = { NULL };
 
-    insert_node(&map, "nome", "Luiz");
-    insert_node(&map, "nome", "Luiz GUSTAVO");
-    insert_node(&map, "curso", "TI");
-    insert_node(&map, "cidade", "Natal");
+//     insert_node(&map, "nome", "Luiz");
+//     insert_node(&map, "nome", "Luiz GUSTAVO");
+//     insert_node(&map, "curso", "TI");
+//     insert_node(&map, "cidade", "Natal");
 
-    print_map(&map);
+//     print_map(&map);
 
-    remove_node(&map, "curso");
+//     remove_node(&map, "curso");
 
-    printf("\nApós remover 'curso':\n");
-    print_map(&map);
+//     printf("\nApós remover 'curso':\n");
+//     print_map(&map);
 
-    free_map(&map);
-    return 0;
-}
+//     free_map(&map);
+//     return 0;
+// }

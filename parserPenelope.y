@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "hashMap.h"
+
+HashMap symbolTable = { NULL };
+
 extern int yylex();
 extern int yyparse();
 extern FILE* yyin;
@@ -102,8 +106,12 @@ for_init:
     ;
 
 decl:
-    type COLON ID
-    | type COLON ID ASSIGNMENT expression
+    type COLON ID {
+        insert_node(&symbolTable, $3, $1);
+    }
+    | type COLON ID ASSIGNMENT expression {
+        insert_node(&symbolTable, $3, $1);
+    }
     ;
 
 type:
@@ -203,6 +211,9 @@ int main(int argc, char **argv) {
     } else {
         printf("Falha na análise. Foi encontrado um erro de sintaxe.\n");
     }
+
+    print_map(&symbolTable);
+    free_map(&symbolTable);
 
     return 0;
 }
