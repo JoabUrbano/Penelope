@@ -28,9 +28,7 @@ void insert_node(HashMap* map, char* key, char* value) {
 
         if(existingNode != NULL) {
             existingNode->value = strdup(value);
-            free(newNode->key);
-            free(newNode->value);
-            free(newNode);
+            free_node(newNode);
             return;
 
         }
@@ -40,6 +38,14 @@ void insert_node(HashMap* map, char* key, char* value) {
             current = current->next;
         }
         current->next = newNode;
+    }
+}
+
+void free_node(Node* node) {
+    if (node != NULL) {
+        free(node->key);
+        free(node->value);
+        free(node);
     }
 }
 
@@ -54,9 +60,9 @@ void remove_node(HashMap* map, char* key) {
             } else {
                 previous->next = current->next;
             }
-            free(current->key);
-            free(current->value);
-            free(current);
+
+            free_node(current);
+            
             return;
         }
         previous = current;
@@ -84,9 +90,9 @@ void free_map(HashMap* map) {
 
     while (current != NULL) {
         nextNode = current->next;
-        free(current->key);
-        free(current->value);
-        free(current);
+
+        free_node(current);
+        
         current = nextNode;
     }
     map->nodes = NULL;

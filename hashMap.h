@@ -19,6 +19,8 @@ void remove_node(HashMap* map, char* key);
 
 void print_map(HashMap* map);
 
+void free_node(Node* node);
+
 void free_map(HashMap* map);
 
 #endif 
