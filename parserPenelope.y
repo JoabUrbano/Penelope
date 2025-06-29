@@ -6,6 +6,10 @@
 #include "./utils/hashMap/hashMap.h"
 #include "./utils/uniqueIdentifier/uniqueIdentifier.h"
 
+#define MAX_SCOPE_DEPTH 100
+char* scopeStack[MAX_SCOPE_DEPTH];
+int scopeTop = -1;
+
 HashMap symbolTable = { NULL };
 char *currentScope = NULL;
 
@@ -13,6 +17,27 @@ extern int yylex();
 extern int yyparse();
 extern FILE* yyin;
 void yyerror(const char* s);
+
+void push_scope(char *scope) {
+    if (scopeTop < MAX_SCOPE_DEPTH - 1) {
+        scopeStack[++scopeTop] = scope;
+        currentScope = scope;
+    } else {
+        fprintf(stderr, "Erro: Estouro da pilha de escopos\n");
+        exit(1);
+    }
+}
+
+void pop_scope() {
+    if (scopeTop >= 0) {
+        free(scopeStack[scopeTop]);
+        scopeStack[scopeTop--] = NULL;
+        currentScope = (scopeTop >= 0) ? scopeStack[scopeTop] : NULL;
+    } else {
+        fprintf(stderr, "Erro: Pilha de escopos vazia\n");
+        exit(1);
+    }
+}
 %}
 
 %union {
@@ -62,10 +87,18 @@ decl_or_fun:
     ;
 
 fun:
-    FUN type ID LPAREN list_param_opt RPAREN LBRACE {
-        if (currentScope) free(currentScope);
-        currentScope = uniqueIdentifier();
-    } list_stmt RBRACE
+    FUN type ID LPAREN list_param_opt RPAREN block
+    ;
+
+block:
+    LBRACE {
+        char *scopeId = uniqueIdentifier();
+
+        push_scope(scopeId);
+    } list_stmt RBRACE {
+        pop_scope();
+    }
+    ;
 
 list_stmt:
     stmt
@@ -92,16 +125,16 @@ compound_stmt:
     ;
 
 while_stmt:
-    WHILE LPAREN expression RPAREN LBRACE list_stmt RBRACE
+    WHILE LPAREN expression RPAREN block
     ;
 
 if_stmt:
-    IF LPAREN expression RPAREN LBRACE list_stmt RBRACE %prec LOWER_THAN_ELSE
-    | IF LPAREN expression RPAREN LBRACE list_stmt RBRACE ELSE LBRACE list_stmt RBRACE
+    IF LPAREN expression RPAREN block %prec LOWER_THAN_ELSE
+    | IF LPAREN expression RPAREN block ELSE block
     ;
 
 for_stmt:
-    FOR LPAREN for_init SEMICOLON expression SEMICOLON assign_stmt RPAREN LBRACE list_stmt RBRACE
+    FOR LPAREN for_init SEMICOLON expression SEMICOLON assign_stmt RPAREN block
     ;
 
 for_init:
@@ -122,7 +155,7 @@ decl:
           insert_node(&symbolTable, fullKey, $1);
           free(fullKey);
       }
-
+    ;
 
 type:
     TYPE                                { $$ = $1; }
