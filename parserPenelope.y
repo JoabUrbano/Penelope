@@ -160,9 +160,12 @@ assign_stmt:
     ;
 
 lvalue:
-    ID
+    ID {
+        verificar_declaracao($1, currentScope, yylineno);
+        $$ = $1;
+    }
     | lvalue LBRACKET expression RBRACKET
-    ;
+;
 
 expression:
     NUMBER                                         { $$ = $1; }
