@@ -1,7 +1,3 @@
-Claro! Aqui está o README atualizado com as informações sobre o `Makefile` e a dependência do `uuid-dev` para rodar o código:
-
----
-
 # Penelope
 
 Penelope é uma proposta de linguagem de programação no contexto da disciplina de engenharia de linguagens. No repositório encontra-se o analisador léxico e o sintático (parser), com o objetivo de traduzir os códigos Penelope para C.
