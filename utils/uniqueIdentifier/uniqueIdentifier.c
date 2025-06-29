@@ -1,37 +1,31 @@
-#include <stdlib.h>
-#include <time.h>
 #include <stdio.h>
-#include "uniqueIdentifier.h"
-
-char randomChar(int index) {
-    char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    return charset[index];
-}
+#include <stdlib.h>
+#include <uuid/uuid.h>
 
 char* uniqueIdentifier() {
-    int length = 24;
-    char *str = malloc(length + 1); 
-    if (!str) return NULL;
+    uuid_t uuid;
+    uuid_generate_random(uuid); 
 
-    srand((unsigned int) time(NULL)); 
+    char *str = malloc(37); 
 
-    for (int i = 0; i < length; i++) {
-        int index = rand() % 62; 
-        str[i] = randomChar(index);
+    if (!str) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return NULL;
     }
 
-    str[length] = '\0'; 
+    uuid_unparse_lower(uuid, str);  
+
     return str;
 }
 
-
 // int main() {
-//     char *identifier = uniqueIdentifier();
-//     if (identifier) {
-//         printf("Unique Identifier: %s\n", identifier);
-//         free(identifier); 
+//     char *id = uniqueIdentifier();
+//     if (id) {
+//         printf("UUIDv4: %s\n", id);
+//         free(id);
 //     } else {
-//         printf("Failed to generate unique identifier.\n");
+//         fprintf(stderr, "Erro ao gerar UUID\n");
 //     }
+
 //     return 0;
 // }
