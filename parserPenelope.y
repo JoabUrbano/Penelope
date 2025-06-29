@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "hashMap.h"
+#include "./utils/hashMap/hashMap.h"
 
 HashMap symbolTable = { NULL };
 
