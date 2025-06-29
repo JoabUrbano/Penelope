@@ -16,17 +16,21 @@ double evaluate_number(char *str) {
 }
 
 void print_value(double value) {
-    printf("%.2f\n", value);
+    printf("%.6g ", value);  // Print with space, no newline, up to 6 significant digits
 }
 
 void print_string(char *str) {
     // Remove quotes from string literals
     if (str && str[0] == '"' && str[strlen(str)-1] == '"') {
         str[strlen(str)-1] = '\0';  // Remove ending quote
-        printf("%s\n", str + 1);   // Skip beginning quote
+        printf("%s ", str + 1);   // Skip beginning quote, add space
     } else if (str) {
-        printf("%s\n", str);
+        printf("%s ", str);
     }
+}
+
+void print_newline() {
+    printf("\n");
 }
 
 double power_operation(double base, double exponent) {
@@ -207,36 +211,62 @@ return_stmt:
     ;
 
 print_stmt:
-    PRINT LPAREN expression RPAREN {
-        print_value($3);
+    PRINT LPAREN print_arg_list RPAREN {
+        print_newline();
     }
-    | PRINT LPAREN STRING RPAREN {
-        print_string($3);
+    ;
+
+print_arg_list:
+    print_arg
+    | print_arg_list COMMA print_arg
+    ;
+
+print_arg:
+    expression {
+        print_value($1);
+    }
+    | STRING {
+        print_string($1);
     }
     ;
 
 assign_stmt:
-    ID ASSIGNMENT expression {
-        store_variable_value($1, $3);
+    lvalue ASSIGNMENT expression {
+        // For simple ID assignments (most common case)
+        if ($1 && strcmp($1, "array_access") != 0) {
+            store_variable_value($1, $3);
+        }
+        // TODO: Implement array element assignment later
     }
-    | ID INCREMENT {
-        double current = get_variable_value($1);
-        store_variable_value($1, current + 1.0);
+    | lvalue INCREMENT {
+        if ($1 && strcmp($1, "array_access") != 0) {
+            double current = get_variable_value($1);
+            store_variable_value($1, current + 1.0);
+        }
     }
-    | ID DECREMENT {
-        double current = get_variable_value($1);
-        store_variable_value($1, current - 1.0);
+    | lvalue DECREMENT {
+        if ($1 && strcmp($1, "array_access") != 0) {
+            double current = get_variable_value($1);
+            store_variable_value($1, current - 1.0);
+        }
     }
     ;
 
 lvalue:
-    ID
-    | lvalue LBRACKET expression RBRACKET
+    ID                                             { $$ = $1; }
+    | lvalue LBRACKET expression RBRACKET          { $$ = strdup("array_access"); }
     ;
 
 expression:
     NUMBER                                         { $$ = $1; }
-    | ID                                           { $$ = get_variable_value($1); }
+    | STRING                                       { $$ = 0.0; /* String literals not implemented in expressions */ }
+    | lvalue                                       { 
+        if ($1 && strcmp($1, "array_access") != 0) {
+            $$ = get_variable_value($1);
+        } else {
+            $$ = 0.0; // Default for array access (not implemented yet)
+        }
+    }
     | LPAREN expression RPAREN                     { $$ = $2; }
     | expression ADDITION expression               { $$ = $1 + $3; }
     | expression SUBTRACTION expression            { $$ = $1 - $3; }
@@ -249,20 +279,24 @@ expression:
     | expression BIGGEREQUALS expression           { $$ = ($1 >= $3) ? 1.0 : 0.0; }
     | expression EQUALS expression                 { $$ = ($1 == $3) ? 1.0 : 0.0; }
     | SUBTRACTION expression %prec UMINUS          { $$ = -$2; }
+    | ID LPAREN arg_list_opt RPAREN                { $$ = 0.0; /* Function calls not implemented yet */ }
+    | LEN LPAREN expression RPAREN                 { $$ = 0.0; /* len() not implemented yet */ }
+    | LBRACKET list_expression RBRACKET            { $$ = 0.0; /* Array literals not implemented yet */ }
     ;
 
 list_expression:
-    expression
-    | list_expression COMMA expression
+    expression                                     { $$ = strdup("array_element"); }
+    | list_expression COMMA expression             { $$ = strdup("array_list"); }
     ;
 
 arg_list_opt:
-    | arg_list
+                                                   { /* empty */ }
+    | arg_list                                     { /* argument list */ }
     ;
 
 arg_list:
-    expression
-    | arg_list COMMA expression
+    expression                                     { /* single argument */ }
+    | arg_list COMMA expression                    { /* multiple arguments */ }
     ;
 
 %%

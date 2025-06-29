@@ -7,14 +7,10 @@ fun void main() {
     // Calcula a expressão x² - y + c
     float: resultado = (x ** 2) - y + c;
     
-    // Imprime o resultado na tela
+    // Imprime o resultado na tela usando múltiplos argumentos
     print("Resultado da expressão x² - y + c:");
-    print("x = ");
-    print(x);
-    print("y = ");
-    print(y);
-    print("c = ");
-    print(c);
-    print("x² - y + c = ");
-    print(resultado);
+    print("x =", x);
+    print("y =", y);
+    print("c =", c);
+    print("x² - y + c =", resultado);
 }
