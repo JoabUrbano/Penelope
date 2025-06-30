@@ -11,11 +11,13 @@
 
 "fun"                { return FUN; }
 (int|float|void|any|string|bool) { yylval.str = strdup(yytext); return TYPE; }
+"true"|"false"       { yylval.str = strdup(yytext); return ID; }
 "while"              { return WHILE; }
 "for"                { return FOR; }
 "if"                 { return IF; }
 "else"               { return ELSE; }
 "len"                { return LEN; }
+"print"              { return PRINT; }
 "return"             { return RETURN; }
 
 "{"                  { return LBRACE; }

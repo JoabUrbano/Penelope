@@ -3,7 +3,7 @@ all: penelope_parser
 penelope_parser: parser.tab.c lex.yy.c semantica.o ./utils/hashMap/hashMap.c ./utils/uniqueIdentifier/uniqueIdentifier.c
 	gcc -o penelope_parser parser.tab.c lex.yy.c semantica.o \
 	    ./utils/hashMap/hashMap.c ./utils/uniqueIdentifier/uniqueIdentifier.c \
-	    -lfl -luuid
+	    -lfl -luuid -lm
 
 parser.tab.c parser.tab.h: parserPenelope.y
 	bison -d -v -g -o parser.tab.c parserPenelope.y
