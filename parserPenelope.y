@@ -191,7 +191,13 @@ if_stmt:
     ;
 
 for_stmt:
-    FOR LPAREN for_init SEMICOLON expression SEMICOLON assign_stmt RPAREN block
+    FOR {
+        char *scopeId = uniqueIdentifier();
+
+        push_scope(scopeId);
+    } LPAREN for_init SEMICOLON expression SEMICOLON assign_stmt RPAREN LBRACE list_stmt RBRACE {
+        pop_scope();
+    }
     ;
 
 for_init:
