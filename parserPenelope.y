@@ -14,6 +14,32 @@ int scopeTop = -1;
 HashMap symbolTable = { NULL };
 HashMap valueTable = { NULL };  // Store actual values
 char *currentScope = NULL;
+int semantic_errors = 0; 
+
+void semantic_error(const char* format, const char* name) {
+    extern int yylineno;
+    fprintf(stderr, "Erro Semântico na linha %d: ", yylineno);
+    fprintf(stderr, format, name);
+    fprintf(stderr, "\n");
+    semantic_errors++;
+}
+
+Node* find_variable_in_scopes(char *name) {
+    for (int i = scopeTop; i >= 0; i--) {
+        char *scope = scopeStack[i];
+        char *fullKey = malloc(strlen(scope) + strlen(name) + 2);
+        sprintf(fullKey, "%s#%s", scope, name);
+        
+        Node *node = find_node(&symbolTable, fullKey);
+        free(fullKey);
+
+        if (node) {
+            return node; // Variável encontrada
+        }
+    }
+    return NULL; // Variável não encontrada em nenhum escopo
+}
+
 
 double evaluate_number(char *str) {
     return atof(str);
@@ -54,16 +80,19 @@ void store_variable_value(char *name, double value) {
 }
 
 double get_variable_value(char *name) {
-    char *fullKey = malloc(strlen(currentScope) + strlen(name) + 2);
-    sprintf(fullKey, "%s#%s", currentScope, name);
-    
-    Node *node = find_node(&valueTable, fullKey);
-    free(fullKey);
-    
-    if (node) {
-        return atof(node->value);
+    for (int i = scopeTop; i >= 0; i--) {
+        char *scope = scopeStack[i];
+        char *fullKey = malloc(strlen(scope) + strlen(name) + 2);
+        sprintf(fullKey, "%s#%s", scope, name);
+
+        Node* node = find_node(&valueTable, fullKey);
+        free(fullKey);
+
+        if (node) {
+            return atof(node->value);
+        }
     }
-    return 0.0; // Default value if not found
+    return 0.0;
 }
 
 extern int yylex();
@@ -271,39 +300,61 @@ print_arg:
 
 assign_stmt:
     lvalue ASSIGNMENT expression {
-        // For simple ID assignments (most common case)
+        // Verifica se a variável do lvalue foi declarada antes de atribuir
         if ($1 && strcmp($1, "array_access") != 0) {
-            store_variable_value($1, $3);
+            if (find_variable_in_scopes($1) == NULL) {
+                semantic_error("Variável '%s' não declarada.", $1);
+            } else {
+                store_variable_value($1, $3);
+            }
         }
-        // TODO: Implement array element assignment later
     }
     | lvalue INCREMENT {
         if ($1 && strcmp($1, "array_access") != 0) {
-            double current = get_variable_value($1);
-            store_variable_value($1, current + 1.0);
+            if (find_variable_in_scopes($1) == NULL) {
+                semantic_error("Variável '%s' não declarada.", $1);
+            } else {
+                double current = get_variable_value($1);
+                store_variable_value($1, current + 1.0);
+            }
         }
     }
     | lvalue DECREMENT {
         if ($1 && strcmp($1, "array_access") != 0) {
-            double current = get_variable_value($1);
-            store_variable_value($1, current - 1.0);
+             if (find_variable_in_scopes($1) == NULL) {
+                semantic_error("Variável '%s' não declarada.", $1);
+            } else {
+                double current = get_variable_value($1);
+                store_variable_value($1, current - 1.0);
+            }
         }
     }
     ;
 
 lvalue:
-    ID                                             { $$ = $1; }
-    | lvalue LBRACKET expression RBRACKET          { $$ = strdup("array_access"); }
+    ID { 
+        $$ = $1; 
+        // A verificação é feita no contexto (assign_stmt ou expression)
+    }
+    | lvalue LBRACKET expression RBRACKET { 
+        $$ = strdup("array_access"); 
+    }
     ;
 
 expression:
     NUMBER                                         { $$ = $1; }
     | STRING                                       { $$ = 0.0; /* String literals not implemented in expressions */ }
-    | lvalue                                       { 
+    | lvalue {
         if ($1 && strcmp($1, "array_access") != 0) {
-            $$ = get_variable_value($1);
+            // VERIFICAÇÃO SEMÂNTICA AQUI
+            if (find_variable_in_scopes($1) == NULL) {
+                semantic_error("Variável '%s' não declarada.", $1);
+                $$ = 0.0; // Retorna um valor padrão para continuar a análise
+            } else {
+                $$ = get_variable_value($1);
+            }
         } else {
-            $$ = 0.0; // Default for array access (not implemented yet)
+            $$ = 0.0; // Valor padrão para acesso a array (ainda não implementado)
         }
     }
     | LPAREN expression RPAREN                     { $$ = $2; }
@@ -357,15 +408,21 @@ int main(int argc, char **argv) {
         yyin = stdin;
     }
 
-    if (yyparse() == 0) {
-        printf("Análise concluída com sucesso. A sintaxe está correta!\n");
+    push_scope(strdup("global"));
+
+    if (yyparse() == 0 && semantic_errors == 0) {
+        printf("Análise concluída com sucesso. A sintaxe e a semântica estão corretas!\n");
     } else {
-        printf("Falha na análise. Foi encontrado um erro de sintaxe.\n");
+        printf("Falha na análise. Foram encontrados %d erros semânticos e/ou erros de sintaxe.\n", semantic_errors);
     }
 
     print_map(&symbolTable);
+    
+    // Libera o escopo global
+    pop_scope(); 
+
     free_map(&symbolTable);
     free_map(&valueTable);
 
-    return 0;
+    return (semantic_errors > 0);
 }
