@@ -16,6 +16,15 @@ HashMap valueTable = { NULL };  // Store actual values
 char *currentScope = NULL;
 int semantic_errors = 0; 
 
+
+int are_types_compatible(const char* declaredType, const char* exprType) {
+    if (strcmp(declaredType, exprType) == 0) return 1;
+    // if ((strcmp(declaredType, "float") == 0 && strcmp(exprType, "int") == 0) ||
+    //   (strcmp(declaredType, "int") == 0 && strcmp(exprType, "float") == 0)) return 1;
+    return 0;
+}
+
+
 void semantic_error(const char* format, const char* name) {
     extern int yylineno;
     fprintf(stderr, "Erro Semântico na linha %d: ", yylineno);
@@ -122,13 +131,19 @@ void pop_scope() {
 }
 %}
 
+/* Inclua o header aqui, *fora* do bloco %{...%}, para que o Bison leia a definição do tipo ANTES do %union */
+%code requires {
+    #include "./structs/expression/expressionResult.h"
+}
+
 %union {
     char *str;
     double num;
+    ExpressionResult* exprResult;
 }
 
 %token <str> ID TYPE STRING
-%token <num> NUMBER
+%token <num> INT FLOAT
 
 %token FUN WHILE FOR IF ELSE LEN PRINT RETURN
 %token LBRACKET RBRACKET COMMA LPAREN RPAREN COLON SEMICOLON NEWLINE
@@ -139,7 +154,7 @@ void pop_scope() {
 %define parse.trace
 
 %type <str> lvalue type list_expression
-%type <num> expression
+%type <exprResult> expression
 
 %right ASSIGNMENT
 %left EQUALS
@@ -243,16 +258,26 @@ decl:
           free(fullKey);
       }
     | type COLON ID ASSIGNMENT expression {
-          char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
-          sprintf(fullKey, "%s#%s", currentScope, $3);
-          insert_node(&symbolTable, fullKey, $1);
-          store_variable_value($3, $5); // Store the computed value
-          free(fullKey);
+            char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
+            sprintf(fullKey, "%s#%s", currentScope, $3);
+            insert_node(&symbolTable, fullKey, $1);
+            // store_variable_value($3, $5); // Store the computed value
+            free(fullKey);
+
+
+            // TODO: Pegar o tipo da expressao dinamicamente
+            char* expressionType = strdup($5 -> type);
+
+            if (!are_types_compatible($1, expressionType)) {
+                semantic_error("Tipo da variável %s não é compatível com o tipo\n", $1);
+            }
+
+            free(expressionType);
       }
     ;
 
 type:
-    TYPE                                { $$ = $1; }
+    TYPE                                { $$ = $1;}
     | TYPE LBRACKET RBRACKET            { 
                                             char *array_type = malloc(strlen($1) + 3);
                                             sprintf(array_type, "%s[]", $1);
@@ -291,7 +316,13 @@ print_arg_list:
 
 print_arg:
     expression {
-        print_value($1);
+        if ($1 != NULL) {
+            if (strcmp($1->type, "float") == 0) {
+                print_value($1->numVal);
+            } else if (strcmp($1->type, "string") == 0) {
+                print_string($1->strVal);
+            }
+        }
     }
     | STRING {
         print_string($1);
@@ -305,7 +336,7 @@ assign_stmt:
             if (find_variable_in_scopes($1) == NULL) {
                 semantic_error("Variável '%s' não declarada.", $1);
             } else {
-                store_variable_value($1, $3);
+                // store_variable_value($1, $3);
             }
         }
     }
@@ -314,8 +345,8 @@ assign_stmt:
             if (find_variable_in_scopes($1) == NULL) {
                 semantic_error("Variável '%s' não declarada.", $1);
             } else {
-                double current = get_variable_value($1);
-                store_variable_value($1, current + 1.0);
+                // double current = get_variable_value($1);
+                // store_variable_value($1, current + 1.0);
             }
         }
     }
@@ -324,8 +355,8 @@ assign_stmt:
              if (find_variable_in_scopes($1) == NULL) {
                 semantic_error("Variável '%s' não declarada.", $1);
             } else {
-                double current = get_variable_value($1);
-                store_variable_value($1, current - 1.0);
+                // double current = get_variable_value($1);
+                // store_variable_value($1, current - 1.0);
             }
         }
     }
@@ -342,37 +373,160 @@ lvalue:
     ;
 
 expression:
-    NUMBER                                         { $$ = $1; }
-    | STRING                                       { $$ = 0.0; /* String literals not implemented in expressions */ }
-    | lvalue {
-        if ($1 && strcmp($1, "array_access") != 0) {
-            // VERIFICAÇÃO SEMÂNTICA AQUI
-            if (find_variable_in_scopes($1) == NULL) {
-                semantic_error("Variável '%s' não declarada.", $1);
-                $$ = 0.0; // Retorna um valor padrão para continuar a análise
-            } else {
-                $$ = get_variable_value($1);
-            }
-        } else {
-            $$ = 0.0; // Valor padrão para acesso a array (ainda não implementado)
-        }
+    INT {
+        ExpressionResult* result = malloc(sizeof(ExpressionResult));
+        result->type = strdup("int");
+        result->numVal = $1;
+        $$ = result;
     }
-    | LPAREN expression RPAREN                     { $$ = $2; }
-    | expression ADDITION expression               { $$ = $1 + $3; }
-    | expression SUBTRACTION expression            { $$ = $1 - $3; }
-    | expression MULTIPLICATION expression         { $$ = $1 * $3; }
-    | expression DIVISION expression               { $$ = $1 / $3; }
-    | expression EXPONENTIATION expression         { $$ = power_operation($1, $3); }
-    | expression SMALLER expression                { $$ = ($1 < $3) ? 1.0 : 0.0; }
-    | expression BIGGER expression                 { $$ = ($1 > $3) ? 1.0 : 0.0; }
-    | expression SMALLEREQUALS expression          { $$ = ($1 <= $3) ? 1.0 : 0.0; }
-    | expression BIGGEREQUALS expression           { $$ = ($1 >= $3) ? 1.0 : 0.0; }
-    | expression EQUALS expression                 { $$ = ($1 == $3) ? 1.0 : 0.0; }
-    | SUBTRACTION expression %prec UMINUS          { $$ = -$2; }
-    | ID LPAREN arg_list_opt RPAREN                { $$ = 0.0; /* Function calls not implemented yet */ }
-    | LEN LPAREN expression RPAREN                 { $$ = 0.0; /* len() not implemented yet */ }
-    | LBRACKET list_expression RBRACKET            { $$ = 0.0; /* Array literals not implemented yet */ }
+    | FLOAT {
+        ExpressionResult* result = malloc(sizeof(ExpressionResult));
+        result->type = strdup("float");
+        result->numVal = $1;
+        $$ = result;
+    }
+    | STRING {
+          ExpressionResult* result = malloc(sizeof(ExpressionResult));
+          result->type = strdup("string");
+          result->strVal = strdup($1);
+          $$ = result;
+      }
+    | lvalue {
+          ExpressionResult* result = malloc(sizeof(ExpressionResult));
+          Node* varNode = find_variable_in_scopes($1);
+          if (!varNode) {
+              semantic_error("Variável '%s' não declarada.", $1);
+              // retorna um resultado padrão para continuar parsing
+              result->type = strdup("float");
+              result->numVal = 0.0;
+          } else {
+              result->type = strdup(varNode->value);
+
+              // TODO: Pegar dinamicamente o valor, esta mockado
+              result->numVal = 3.0;
+          }
+          $$ = result;
+      }
+    | LPAREN expression RPAREN {
+          $$ = $2;
+      }
+    | expression ADDITION expression {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          // Simplificação: supondo que as operações só funcionam em float
+          res->type = strdup("float");
+          res->numVal = $1->numVal + $3->numVal;
+          $$ = res;
+          free_expression_result($1);
+          free_expression_result($3);
+      }
+    | expression SUBTRACTION expression {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("float");
+          res->numVal = $1->numVal - $3->numVal;
+          $$ = res;
+          free_expression_result($1);
+          free_expression_result($3);
+      }
+    | expression MULTIPLICATION expression {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("float");
+          res->numVal = $1->numVal * $3->numVal;
+          $$ = res;
+          free_expression_result($1);
+          free_expression_result($3);
+      }
+    | expression DIVISION expression {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("float");
+          if ($3->numVal == 0) {
+              semantic_error("Divisão por zero.", "");
+              res->numVal = 0.0;
+          } else {
+              res->numVal = $1->numVal / $3->numVal;
+          }
+          $$ = res;
+          free_expression_result($1);
+          free_expression_result($3);
+      }
+    | expression EXPONENTIATION expression {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("float");
+          res->numVal = power_operation($1->numVal, $3->numVal);
+          $$ = res;
+          free_expression_result($1);
+          free_expression_result($3);
+      }
+    // Comparações: retornam 1.0 ou 0.0 (float)
+    | expression SMALLER expression {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("float");
+          res->numVal = ($1->numVal < $3->numVal) ? 1.0 : 0.0;
+          $$ = res;
+          free_expression_result($1);
+          free_expression_result($3);
+      }
+    | expression BIGGER expression {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("float");
+          res->numVal = ($1->numVal > $3->numVal) ? 1.0 : 0.0;
+          $$ = res;
+          free_expression_result($1);
+          free_expression_result($3);
+      }
+    | expression SMALLEREQUALS expression {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("float");
+          res->numVal = ($1->numVal <= $3->numVal) ? 1.0 : 0.0;
+          $$ = res;
+          free_expression_result($1);
+          free_expression_result($3);
+      }
+    | expression BIGGEREQUALS expression {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("float");
+          res->numVal = ($1->numVal >= $3->numVal) ? 1.0 : 0.0;
+          $$ = res;
+          free_expression_result($1);
+          free_expression_result($3);
+      }
+    | expression EQUALS expression {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("float");
+          res->numVal = (strcmp($1->type, $3->type) == 0 && (
+              (strcmp($1->type, "float") == 0 && $1->numVal == $3->numVal) ||
+              (strcmp($1->type, "string") == 0 && strcmp($1->strVal, $3->strVal) == 0)
+          )) ? 1.0 : 0.0;
+          $$ = res;
+          free_expression_result($1);
+          free_expression_result($3);
+      }
+    | SUBTRACTION expression %prec UMINUS {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("float");
+          res->numVal = -$2->numVal;
+          $$ = res;
+          free_expression_result($2);
+      }
+    | ID LPAREN arg_list_opt RPAREN {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("float");
+          res->numVal = 0.0; // Função não implementada ainda
+          $$ = res;
+      }
+    | LEN LPAREN expression RPAREN {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("int");
+          res->numVal = 0.0; // len não implementado ainda
+          $$ = res;
+      }
+    | LBRACKET list_expression RBRACKET {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("float");
+          res->numVal = 0.0; // arrays não implementados
+          $$ = res;
+      }
     ;
+
 
 list_expression:
     expression                                     { $$ = strdup("array_element"); }
