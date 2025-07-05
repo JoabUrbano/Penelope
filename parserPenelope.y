@@ -327,7 +327,7 @@ print_arg:
     expression {
         if ($1 != NULL) {
             if (strcmp($1->type, "float") == 0) {
-                print_value($1->numVal);
+                print_value($1->doubleVal);
             } else if (strcmp($1->type, "string") == 0) {
                 print_string($1->strVal);
             }
@@ -385,19 +385,19 @@ expression:
     BOOL {
         ExpressionResult* result = malloc(sizeof(ExpressionResult));
         result->type = strdup("bool");
-        result->numVal = $1;
+        result->intVal = $1;
         $$ = result;
     }
     | INT {
         ExpressionResult* result = malloc(sizeof(ExpressionResult));
         result->type = strdup("int");
-        result->numVal = $1;
+        result->intVal = $1;
         $$ = result;
     }
     | FLOAT {
         ExpressionResult* result = malloc(sizeof(ExpressionResult));
         result->type = strdup("float");
-        result->numVal = $1;
+        result->doubleVal = $1;
         $$ = result;
     }
     | STRING {
@@ -413,12 +413,12 @@ expression:
               semantic_error("Variável '%s' não declarada.", $1);
               // retorna um resultado padrão para continuar parsing
               result->type = strdup("float");
-              result->numVal = 0.0;
+              result->doubleVal = 0.0;
           } else {
               result->type = strdup(varNode->value);
 
               // TODO: Pegar dinamicamente o valor, esta mockado
-              result->numVal = 3.0;
+              result->doubleVal = 3.0;
           }
           $$ = result;
       }
@@ -429,7 +429,7 @@ expression:
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           // Simplificação: supondo que as operações só funcionam em float
           res->type = strdup("float");
-          res->numVal = $1->numVal + $3->numVal;
+          res->doubleVal = $1->doubleVal + $3->doubleVal;
           $$ = res;
           free_expression_result($1);
           free_expression_result($3);
@@ -437,7 +437,7 @@ expression:
     | expression SUBTRACTION expression {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("float");
-          res->numVal = $1->numVal - $3->numVal;
+          res->doubleVal = $1->doubleVal - $3->doubleVal;
           $$ = res;
           free_expression_result($1);
           free_expression_result($3);
@@ -445,7 +445,7 @@ expression:
     | expression MULTIPLICATION expression {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("float");
-          res->numVal = $1->numVal * $3->numVal;
+          res->doubleVal = $1->doubleVal * $3->doubleVal;
           $$ = res;
           free_expression_result($1);
           free_expression_result($3);
@@ -453,11 +453,11 @@ expression:
     | expression DIVISION expression {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("float");
-          if ($3->numVal == 0) {
+          if ($3->doubleVal == 0) {
               semantic_error("Divisão por zero.", "");
-              res->numVal = 0.0;
+              res->doubleVal = 0.0;
           } else {
-              res->numVal = $1->numVal / $3->numVal;
+              res->doubleVal = $1->doubleVal / $3->doubleVal;
           }
           $$ = res;
           free_expression_result($1);
@@ -466,7 +466,7 @@ expression:
     | expression EXPONENTIATION expression {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("float");
-          res->numVal = power_operation($1->numVal, $3->numVal);
+          res->doubleVal = power_operation($1->doubleVal, $3->doubleVal);
           $$ = res;
           free_expression_result($1);
           free_expression_result($3);
@@ -475,7 +475,7 @@ expression:
     | expression SMALLER expression {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("float");
-          res->numVal = ($1->numVal < $3->numVal) ? 1.0 : 0.0;
+          res->doubleVal = ($1->doubleVal < $3->doubleVal) ? 1.0 : 0.0;
           $$ = res;
           free_expression_result($1);
           free_expression_result($3);
@@ -483,7 +483,7 @@ expression:
     | expression BIGGER expression {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("float");
-          res->numVal = ($1->numVal > $3->numVal) ? 1.0 : 0.0;
+          res->doubleVal = ($1->doubleVal > $3->doubleVal) ? 1.0 : 0.0;
           $$ = res;
           free_expression_result($1);
           free_expression_result($3);
@@ -491,7 +491,7 @@ expression:
     | expression SMALLEREQUALS expression {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("float");
-          res->numVal = ($1->numVal <= $3->numVal) ? 1.0 : 0.0;
+          res->doubleVal = ($1->doubleVal <= $3->doubleVal) ? 1.0 : 0.0;
           $$ = res;
           free_expression_result($1);
           free_expression_result($3);
@@ -499,7 +499,7 @@ expression:
     | expression BIGGEREQUALS expression {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("float");
-          res->numVal = ($1->numVal >= $3->numVal) ? 1.0 : 0.0;
+          res->doubleVal = ($1->doubleVal >= $3->doubleVal) ? 1.0 : 0.0;
           $$ = res;
           free_expression_result($1);
           free_expression_result($3);
@@ -507,8 +507,8 @@ expression:
     | expression EQUALS expression {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("float");
-          res->numVal = (strcmp($1->type, $3->type) == 0 && (
-              (strcmp($1->type, "float") == 0 && $1->numVal == $3->numVal) ||
+          res->doubleVal = (strcmp($1->type, $3->type) == 0 && (
+              (strcmp($1->type, "float") == 0 && $1->doubleVal == $3->doubleVal) ||
               (strcmp($1->type, "string") == 0 && strcmp($1->strVal, $3->strVal) == 0)
           )) ? 1.0 : 0.0;
           $$ = res;
@@ -518,26 +518,26 @@ expression:
     | SUBTRACTION expression %prec UMINUS {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("float");
-          res->numVal = -$2->numVal;
+          res->doubleVal = -$2->doubleVal;
           $$ = res;
           free_expression_result($2);
       }
     | ID LPAREN arg_list_opt RPAREN {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("float");
-          res->numVal = 0.0; // Função não implementada ainda
+          res->doubleVal = 0.0; // Função não implementada ainda
           $$ = res;
       }
     | LEN LPAREN expression RPAREN {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("int");
-          res->numVal = 0.0; // len não implementado ainda
+          res->doubleVal = 0.0; // len não implementado ainda
           $$ = res;
       }
     | LBRACKET list_expression RBRACKET {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("float");
-          res->numVal = 0.0; // arrays não implementados
+          res->doubleVal = 0.0; // arrays não implementados
           $$ = res;
       }
     ;

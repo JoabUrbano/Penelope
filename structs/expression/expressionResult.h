@@ -6,7 +6,8 @@ typedef struct ExpressionResult
     char *type;
     union
     {
-        double numVal;
+        double doubleVal;
+        int intVal;
         char *strVal;
     };
 } ExpressionResult;
