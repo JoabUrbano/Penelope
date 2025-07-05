@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdarg.h>
 
 #include "./utils/hashMap/hashMap.h"
 #include "./utils/uniqueIdentifier/uniqueIdentifier.h"
@@ -25,10 +26,15 @@ int are_types_compatible(const char* declaredType, const char* exprType) {
 }
 
 
-void semantic_error(const char* format, const char* name) {
+void semantic_error(const char* format, ...) {
     extern int yylineno;
     fprintf(stderr, "Erro Semântico na linha %d: ", yylineno);
-    fprintf(stderr, format, name);
+
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);  // Imprime a mensagem formatada
+    va_end(args);
+
     fprintf(stderr, "\n");
     semantic_errors++;
 }
@@ -269,7 +275,8 @@ decl:
             char* expressionType = strdup($5 -> type);
 
             if (!are_types_compatible($1, expressionType)) {
-                semantic_error("Tipo da variável %s não é compatível com o tipo\n", $1);
+                semantic_error("Tipo incompatível: a variável de tipo %s não pode receber o tipo %s", $1, expressionType);
+
             }
 
             free(expressionType);
