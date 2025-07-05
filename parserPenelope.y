@@ -148,6 +148,8 @@ void pop_scope() {
     ExpressionResult* exprResult;
 }
 
+
+%token <num> BOOL
 %token <str> ID TYPE STRING
 %token <num> INT FLOAT
 
@@ -380,7 +382,13 @@ lvalue:
     ;
 
 expression:
-    INT {
+    BOOL {
+        ExpressionResult* result = malloc(sizeof(ExpressionResult));
+        result->type = strdup("bool");
+        result->numVal = $1;
+        $$ = result;
+    }
+    | INT {
         ExpressionResult* result = malloc(sizeof(ExpressionResult));
         result->type = strdup("int");
         result->numVal = $1;

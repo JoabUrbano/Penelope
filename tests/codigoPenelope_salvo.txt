@@ -1,6 +1,7 @@
-fun int[] retornarNumeroVendasOrdenadasDecrescente(int[]: dadosVendas) {
+fun int[] retornarNumeroVendasOrdenadasDecrescente(any: dados) {
+    int[]: dadosVendas = dados["quantidadeVendas"];
+    
     int: numVendas = len(dadosVendas);
-
     for(int: i = 0; i < numVendas; i++) {
         for(int: j = 0; j < numVendas - i - 1; j++) {
             if(dadosVendas[j] < dadosVendas[j + 1]) {
@@ -10,20 +11,25 @@ fun int[] retornarNumeroVendasOrdenadasDecrescente(int[]: dadosVendas) {
             }
         }
     }
-
     return dadosVendas;
 }
 
 fun void main() {
-    int[]: quantidadeVendas = [120, 75, 140, 200, 99];
+    // Quero saber quantos vendedores passaram de 100 vendas no mês
+    any: dadosQuantidadeVendas;
     int: quantidadeVendasSuperior100 = 0;
     int[]: quantidadeVendasOrdenadoDecrescente;
 
-    for(int: i = 0; i < len(quantidadeVendas); i++) {
-        if(quantidadeVendas[i] > 100) {
+    for(int: i = 0; i < len(dadosQuantidadeVendas); i++) {
+        if(dadosQuantidadeVendas["quantidadeVendas"][i] > 100) {
             quantidadeVendasSuperior100++;
         }
     }
 
-    quantidadeVendasOrdenadoDecrescente = retornarNumeroVendasOrdenadasDecrescente(quantidadeVendas);
+    quantidadeVendasOrdenadoDecrescente = retornarNumeroVendasOrdenadasDecrescente(dadosQuantidadeVendas);
 }
+
+
+
+
+
