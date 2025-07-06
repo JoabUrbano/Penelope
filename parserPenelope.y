@@ -236,24 +236,24 @@ while_stmt:
     ;
 
 if_stmt:
-    if_stmt_no_else
-    | IF LPAREN expression RPAREN {
+    IF LPAREN expression RPAREN {
         last_condition_result = ($3 != 0.0);  // armazena a condição numa variável global
         exec_block = last_condition_result;   // ativa o bloco do if se verdadeiro
-    } block ELSE {
-        exec_block = !last_condition_result;  // ativa o bloco do else se falso
-    } block {
-        exec_block = 1;  // reseta após o else
+    } block else_part {
+        exec_block = 1;  // reseta após o if
     }
     ;
 
-
-if_stmt_no_else:
-    IF LPAREN expression RPAREN {
-        exec_block = ($3 != 0.0);
-    } block {
-        exec_block = 1;
-    } %prec LOWER_THAN_ELSE
+else_part:
+    /* empty */ {
+        // No else clause
+    }
+    | ELSE {
+        exec_block = !last_condition_result;  // ativa o bloco do else se falso
+    } block
+    | ELSE {
+        exec_block = !last_condition_result;  // ativa o bloco do else se falso
+    } if_stmt
 
 
 
@@ -384,7 +384,6 @@ lvalue:
 expression:
     NUMBER                                         { $$ = $1; }
     | BOOL                                         { $$ = $1; }
-    | STRING                                       { $$ = 0.0; /* String literals not implemented in expressions */ }
     | lvalue {
         if ($1 && strcmp($1, "array_access") != 0) {
             // VERIFICAÇÃO SEMÂNTICA AQUI
@@ -454,10 +453,15 @@ int main(int argc, char **argv) {
 
     push_scope(strdup("global"));
 
-    if (yyparse() == 0 && semantic_errors == 0) {
+    int parse_result = yyparse();
+    int syntax_errors = (parse_result != 0) ? 1 : 0;
+    int total_errors = syntax_errors + semantic_errors;
+
+    if (parse_result == 0 && semantic_errors == 0) {
         printf("Análise concluída com sucesso. A sintaxe e a semântica estão corretas!\n");
     } else {
-        printf("Falha na análise. Foram encontrados %d erros semânticos e/ou erros de sintaxe.\n", semantic_errors);
+        printf("Falha na análise. Foram encontrados %d erros de sintaxe e %d erros semânticos (total: %d erros).\n", 
+               syntax_errors, semantic_errors, total_errors);
     }
 
     print_map(&symbolTable);
@@ -468,5 +472,5 @@ int main(int argc, char **argv) {
     free_map(&symbolTable);
     free_map(&valueTable);
 
-    return (semantic_errors > 0);
+    return (total_errors > 0);
 }
