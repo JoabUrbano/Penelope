@@ -299,26 +299,26 @@ for_init:
 
 decl:
       type COLON ID {
-          // Check for duplicate declaration in current scope
+          // Verifica declaração duplicada no escopo atual
           if (find_variable_in_current_scope($3) != NULL) {
               semantic_error("Variável '%s' já declarada no escopo atual.", $3);
           } else {
               char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
               sprintf(fullKey, "%s#%s", currentScope, $3);
               insert_node(&symbolTable, fullKey, $1);
-              store_variable_value($3, 0.0); // Initialize with 0
+              store_variable_value($3, 0.0); // Inicializa com 0
               free(fullKey);
           }
       }
     | type COLON ID ASSIGNMENT expression {
-          // Check for duplicate declaration in current scope
+          // Verifica declaração duplicada no escopo atual
           if (find_variable_in_current_scope($3) != NULL) {
               semantic_error("Variável '%s' já declarada no escopo atual.", $3);
           } else {
               char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
               sprintf(fullKey, "%s#%s", currentScope, $3);
               insert_node(&symbolTable, fullKey, $1);
-              store_variable_value($3, $5); // Store the computed value
+              store_variable_value($3, $5); // Armazena o valor calculado
               free(fullKey);
           }
       }
@@ -348,7 +348,7 @@ param:
     ;
 
 return_stmt:
-    RETURN expression { /* Could add return type checking here */ }
+    RETURN expression { /* Poderia adicionar verificação de tipo de retorno aqui */ }
     ;
 
 print_stmt:
@@ -416,7 +416,7 @@ lvalue:
 
 expression:
     NUMBER                                         { $$ = $1; }
-    | STRING                                       { $$ = 0.0; /* String literals return 0 for numeric evaluation */ }
+    | STRING                                       { $$ = 0.0; /* Literais string retornam 0 para avaliação numérica */ }
     | lvalue {
         if ($1 && strcmp($1, "array_access") != 0) {
             // VERIFICAÇÃO SEMÂNTICA AQUI
@@ -432,7 +432,7 @@ expression:
     }
     | LPAREN expression RPAREN                     { $$ = $2; }
     | expression ADDITION expression               { 
-        // Basic type checking for addition - can be enhanced later
+        // Verificação básica de tipos para adição - pode ser melhorada depois
         $$ = $1 + $3; 
     }
     | expression SUBTRACTION expression            { $$ = $1 - $3; }
@@ -445,9 +445,9 @@ expression:
     | expression BIGGEREQUALS expression           { $$ = ($1 >= $3) ? 1.0 : 0.0; }
     | expression EQUALS expression                 { $$ = ($1 == $3) ? 1.0 : 0.0; }
     | SUBTRACTION expression %prec UMINUS          { $$ = -$2; }
-    | ID LPAREN arg_list_opt RPAREN                { $$ = 0.0; /* Function calls not implemented yet */ }
-    | LEN LPAREN expression RPAREN                 { $$ = 0.0; /* len() not implemented yet */ }
-    | LBRACKET list_expression RBRACKET            { $$ = 0.0; /* Array literals not implemented yet */ }
+    | ID LPAREN arg_list_opt RPAREN                { $$ = 0.0; /* Chamadas de função ainda não implementadas */ }
+    | LEN LPAREN expression RPAREN                 { $$ = 0.0; /* len() ainda não implementado */ }
+    | LBRACKET list_expression RBRACKET            { $$ = 0.0; /* Literais de array ainda não implementados */ }
     ;
 
 list_expression:
@@ -456,13 +456,13 @@ list_expression:
     ;
 
 arg_list_opt:
-                                                   { /* empty */ }
-    | arg_list                                     { /* argument list */ }
+                                                   { /* vazio */ }
+    | arg_list                                     { /* lista de argumentos */ }
     ;
 
 arg_list:
-    expression                                     { /* single argument */ }
-    | arg_list COMMA expression                    { /* multiple arguments */ }
+    expression                                     { /* argumento único */ }
+    | arg_list COMMA expression                    { /* múltiplos argumentos */ }
     ;
 
 %%
