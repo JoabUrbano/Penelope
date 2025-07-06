@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdarg.h>
 
 #include "./utils/hashMap/hashMap.h"
 #include "./utils/uniqueIdentifier/uniqueIdentifier.h"
@@ -16,10 +17,15 @@ HashMap valueTable = { NULL };  // Store actual values
 char *currentScope = NULL;
 int semantic_errors = 0; 
 
-void semantic_error(const char* format, const char* name) {
+void semantic_error(const char* format, ...) {
     extern int yylineno;
     fprintf(stderr, "Erro Semântico na linha %d: ", yylineno);
-    fprintf(stderr, format, name);
+    
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    
     fprintf(stderr, "\n");
     semantic_errors++;
 }
@@ -40,6 +46,17 @@ Node* find_variable_in_scopes(char *name) {
     return NULL; // Variável não encontrada em nenhum escopo
 }
 
+Node* find_variable_in_current_scope(char *name) {
+    if (currentScope == NULL) return NULL;
+    
+    char *fullKey = malloc(strlen(currentScope) + strlen(name) + 2);
+    sprintf(fullKey, "%s#%s", currentScope, name);
+    
+    Node *node = find_node(&symbolTable, fullKey);
+    free(fullKey);
+    
+    return node;
+}
 
 double evaluate_number(char *str) {
     return atof(str);
@@ -93,6 +110,52 @@ double get_variable_value(char *name) {
         }
     }
     return 0.0;
+}
+
+char* get_variable_type(char *name) {
+    for (int i = scopeTop; i >= 0; i--) {
+        char *scope = scopeStack[i];
+        char *fullKey = malloc(strlen(scope) + strlen(name) + 2);
+        sprintf(fullKey, "%s#%s", scope, name);
+
+        Node* node = find_node(&symbolTable, fullKey);
+        free(fullKey);
+
+        if (node) {
+            return node->value;  // The type is stored in the value field
+        }
+    }
+    return NULL;
+}
+
+int are_types_compatible(char *type1, char *type2) {
+    if (!type1 || !type2) return 0;
+    
+    // Same types are always compatible
+    if (strcmp(type1, type2) == 0) return 1;
+    
+    // int and float are compatible
+    if ((strcmp(type1, "int") == 0 && strcmp(type2, "float") == 0) ||
+        (strcmp(type1, "float") == 0 && strcmp(type2, "int") == 0)) {
+        return 1;
+    }
+    
+    return 0;  // Other combinations are not compatible
+}
+
+char* get_result_type(char *type1, char *type2) {
+    if (!type1 || !type2) return strdup("any");
+    
+    // If types are the same, return that type
+    if (strcmp(type1, type2) == 0) return strdup(type1);
+    
+    // int + float = float (promotion)
+    if ((strcmp(type1, "int") == 0 && strcmp(type2, "float") == 0) ||
+        (strcmp(type1, "float") == 0 && strcmp(type2, "int") == 0)) {
+        return strdup("float");
+    }
+    
+    return strdup("any");  // For incompatible types
 }
 
 extern int yylex();
@@ -236,18 +299,28 @@ for_init:
 
 decl:
       type COLON ID {
-          char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
-          sprintf(fullKey, "%s#%s", currentScope, $3);
-          insert_node(&symbolTable, fullKey, $1);
-          store_variable_value($3, 0.0); // Initialize with 0
-          free(fullKey);
+          // Verifica declaração duplicada no escopo atual
+          if (find_variable_in_current_scope($3) != NULL) {
+              semantic_error("Variável '%s' já declarada no escopo atual.", $3);
+          } else {
+              char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
+              sprintf(fullKey, "%s#%s", currentScope, $3);
+              insert_node(&symbolTable, fullKey, $1);
+              store_variable_value($3, 0.0); // Inicializa com 0
+              free(fullKey);
+          }
       }
     | type COLON ID ASSIGNMENT expression {
-          char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
-          sprintf(fullKey, "%s#%s", currentScope, $3);
-          insert_node(&symbolTable, fullKey, $1);
-          store_variable_value($3, $5); // Store the computed value
-          free(fullKey);
+          // Verifica declaração duplicada no escopo atual
+          if (find_variable_in_current_scope($3) != NULL) {
+              semantic_error("Variável '%s' já declarada no escopo atual.", $3);
+          } else {
+              char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
+              sprintf(fullKey, "%s#%s", currentScope, $3);
+              insert_node(&symbolTable, fullKey, $1);
+              store_variable_value($3, $5); // Armazena o valor calculado
+              free(fullKey);
+          }
       }
     ;
 
@@ -275,7 +348,7 @@ param:
     ;
 
 return_stmt:
-    RETURN expression
+    RETURN expression { /* Poderia adicionar verificação de tipo de retorno aqui */ }
     ;
 
 print_stmt:
@@ -343,7 +416,7 @@ lvalue:
 
 expression:
     NUMBER                                         { $$ = $1; }
-    | STRING                                       { $$ = 0.0; /* String literals not implemented in expressions */ }
+    | STRING                                       { $$ = 0.0; /* Literais string retornam 0 para avaliação numérica */ }
     | lvalue {
         if ($1 && strcmp($1, "array_access") != 0) {
             // VERIFICAÇÃO SEMÂNTICA AQUI
@@ -358,7 +431,10 @@ expression:
         }
     }
     | LPAREN expression RPAREN                     { $$ = $2; }
-    | expression ADDITION expression               { $$ = $1 + $3; }
+    | expression ADDITION expression               { 
+        // Verificação básica de tipos para adição - pode ser melhorada depois
+        $$ = $1 + $3; 
+    }
     | expression SUBTRACTION expression            { $$ = $1 - $3; }
     | expression MULTIPLICATION expression         { $$ = $1 * $3; }
     | expression DIVISION expression               { $$ = $1 / $3; }
@@ -369,9 +445,9 @@ expression:
     | expression BIGGEREQUALS expression           { $$ = ($1 >= $3) ? 1.0 : 0.0; }
     | expression EQUALS expression                 { $$ = ($1 == $3) ? 1.0 : 0.0; }
     | SUBTRACTION expression %prec UMINUS          { $$ = -$2; }
-    | ID LPAREN arg_list_opt RPAREN                { $$ = 0.0; /* Function calls not implemented yet */ }
-    | LEN LPAREN expression RPAREN                 { $$ = 0.0; /* len() not implemented yet */ }
-    | LBRACKET list_expression RBRACKET            { $$ = 0.0; /* Array literals not implemented yet */ }
+    | ID LPAREN arg_list_opt RPAREN                { $$ = 0.0; /* Chamadas de função ainda não implementadas */ }
+    | LEN LPAREN expression RPAREN                 { $$ = 0.0; /* len() ainda não implementado */ }
+    | LBRACKET list_expression RBRACKET            { $$ = 0.0; /* Literais de array ainda não implementados */ }
     ;
 
 list_expression:
@@ -380,13 +456,13 @@ list_expression:
     ;
 
 arg_list_opt:
-                                                   { /* empty */ }
-    | arg_list                                     { /* argument list */ }
+                                                   { /* vazio */ }
+    | arg_list                                     { /* lista de argumentos */ }
     ;
 
 arg_list:
-    expression                                     { /* single argument */ }
-    | arg_list COMMA expression                    { /* multiple arguments */ }
+    expression                                     { /* argumento único */ }
+    | arg_list COMMA expression                    { /* múltiplos argumentos */ }
     ;
 
 %%
