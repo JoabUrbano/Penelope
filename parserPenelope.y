@@ -267,6 +267,7 @@ decl:
 
         Data newData;
         newData.type = strdup($1);
+        
         if (strcmp($1, "int") == 0) {
             newData.value.intVal = $5->intVal;
         } else if (strcmp($1, "float") == 0) {
@@ -286,6 +287,8 @@ decl:
             printf("%d\n", newData.value.intVal);
         } else if (strcmp(newData.type, "float") == 0) {
             printf("%f\n", newData.value.doubleVal);
+        } else if (strcmp(newData.type, "bool") == 0) {
+            printf("%d\n", newData.value.intVal);
         }
         
         insert_node(&symbolTable, fullKey, newData);

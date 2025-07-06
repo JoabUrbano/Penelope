@@ -14,6 +14,8 @@ Data copy_data(Data src) {
         dest.value.doubleVal = src.value.doubleVal;
     } else if (strcmp(src.type, "string") == 0) {
         dest.value.strVal = strdup(src.value.strVal);
+    } else if (strcmp(src.type, "bool") == 0) {
+        dest.value.intVal = src.value.intVal;
     } else {
         dest.value.strVal = NULL;
     }
@@ -110,6 +112,8 @@ void print_map(HashMap* map) {
             printf("%f", current->value.value.doubleVal);
         } else if (strcmp(current->value.type, "string") == 0) {
             printf("%s", current->value.value.strVal);
+        } else if (strcmp(current->value.type, "bool") == 0) {
+            printf("%d", current->value.value.intVal);
         } else {
             printf("(tipo desconhecido)");
         }
