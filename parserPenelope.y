@@ -452,7 +452,7 @@ expression:
             } else if (strcmp(varNode->value.type, "bool") == 0) {
                 result->intVal = varNode->value.value.intVal;
             } else if (strcmp(varNode->value.type, "string") == 0) {
-                result->strVal = varNode->value.value.strVal;
+                result->strVal = strdup(varNode->value.value.strVal);
             } else {
                 semantic_error("Tipo '%s' não suportado em expressões.", varNode->value.type);
                 YYABORT;
