@@ -13,7 +13,6 @@ char* scopeStack[MAX_SCOPE_DEPTH];
 int scopeTop = -1;
 
 HashMap symbolTable = { NULL };
-HashMap valueTable = { NULL };  // Store actual values
 char *currentScope = NULL;
 int semantic_errors = 0; 
 
@@ -739,7 +738,6 @@ int main(int argc, char **argv) {
     pop_scope(); 
 
     free_map(&symbolTable);
-    free_map(&valueTable);
 
     return (semantic_errors > 0);
 }
