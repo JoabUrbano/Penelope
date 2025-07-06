@@ -550,70 +550,126 @@ expression:
         free_expression_result($1);
         free_expression_result($3);
       }
-    // Comparações: retornam 1.0 ou 0.0 (float)
-
     | expression SMALLER expression {
         ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        res->type = strdup("bool");
+        
+        if (!are_types_compatible($1->type, $3->type) || strcmp($1->type, "string") == 0) {
+             semantic_error("Operador '<' inválido entre os tipos %s e %s.", $1->type, $3->type);
+             free(res);
+             YYABORT;
+        }
 
-        if (strcmp($1->type, "string") == 0 || strcmp($3->type, "string") == 0) {
-            semantic_error("O operador '<' não pode ser aplicado entre os tipos %s e %s.", $1->type, $3->type);
+        double left = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
+        double right = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
+        
+        res->intVal = (left < right);
+        
+        free_expression_result($1);
+        free_expression_result($3);
+        $$ = res;
+    }
+    | expression BIGGER expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        res->type = strdup("bool");
+        
+        if (!are_types_compatible($1->type, $3->type) || strcmp($1->type, "string") == 0) {
+             semantic_error("Operador '>' inválido entre os tipos %s e %s.", $1->type, $3->type);
+             free(res);
+             YYABORT;
+        }
+
+        double left = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
+        double right = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
+        
+        res->intVal = (left > right);
+        
+        free_expression_result($1);
+        free_expression_result($3);
+        $$ = res;
+    }
+    | expression SMALLEREQUALS expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        res->type = strdup("bool");
+        
+        if (!are_types_compatible($1->type, $3->type) || strcmp($1->type, "string") == 0) {
+             semantic_error("Operador '<=' inválido entre os tipos %s e %s.", $1->type, $3->type);
+             free(res);
+             YYABORT;
+        }
+
+        double left = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
+        double right = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
+        
+        res->intVal = (left <= right);
+        
+        free_expression_result($1);
+        free_expression_result($3);
+        $$ = res;
+    }
+    | expression BIGGEREQUALS expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        res->type = strdup("bool");
+        
+        if (!are_types_compatible($1->type, $3->type) || strcmp($1->type, "string") == 0) {
+             semantic_error("Operador '>=' inválido entre os tipos %s e %s.", $1->type, $3->type);
+             free(res);
+             YYABORT;
+        }
+
+        double left = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
+        double right = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
+        
+        res->intVal = (left >= right);
+        
+        free_expression_result($1);
+        free_expression_result($3);
+        $$ = res;
+    }
+    | expression EQUALS expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        res->type = strdup("bool");
+        int result = 0;
+
+        // Caso 1: Comparação de strings
+        if (strcmp($1->type, "string") == 0 && strcmp($3->type, "string") == 0) {
+            result = (strcmp($1->strVal, $3->strVal) == 0);
+        } 
+        
+        // Caso 2: Comparação de tipos numéricos compatíveis
+        else if (are_types_compatible($1->type, $3->type)) {
+            double left = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
+            double right = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
+            result = (left == right);
+        } 
+        // Caso 3: Tipos incompatíveis
+        else {
+            semantic_error("Operador '==' inválido entre os tipos %s e %s.", $1->type, $3->type);
             free(res);
             YYABORT;
         }
 
-        double leftVal = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
-        double rightVal = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
-
-        res->type = strdup("bool");
-        res->intVal = (leftVal < rightVal) ? 1 : 0;
-
+        res->intVal = result;
         free_expression_result($1);
         free_expression_result($3);
-
         $$ = res;
     }
-    | expression BIGGER expression {
-          ExpressionResult* res = malloc(sizeof(ExpressionResult));
-          res->type = strdup("float");
-          res->doubleVal = ($1->doubleVal > $3->doubleVal) ? 1.0 : 0.0;
-          $$ = res;
-          free_expression_result($1);
-          free_expression_result($3);
-      }
-    | expression SMALLEREQUALS expression {
-          ExpressionResult* res = malloc(sizeof(ExpressionResult));
-          res->type = strdup("float");
-          res->doubleVal = ($1->doubleVal <= $3->doubleVal) ? 1.0 : 0.0;
-          $$ = res;
-          free_expression_result($1);
-          free_expression_result($3);
-      }
-    | expression BIGGEREQUALS expression {
-          ExpressionResult* res = malloc(sizeof(ExpressionResult));
-          res->type = strdup("float");
-          res->doubleVal = ($1->doubleVal >= $3->doubleVal) ? 1.0 : 0.0;
-          $$ = res;
-          free_expression_result($1);
-          free_expression_result($3);
-      }
-    | expression EQUALS expression {
-          ExpressionResult* res = malloc(sizeof(ExpressionResult));
-          res->type = strdup("float");
-          res->doubleVal = (strcmp($1->type, $3->type) == 0 && (
-              (strcmp($1->type, "float") == 0 && $1->doubleVal == $3->doubleVal) ||
-              (strcmp($1->type, "string") == 0 && strcmp($1->strVal, $3->strVal) == 0)
-          )) ? 1.0 : 0.0;
-          $$ = res;
-          free_expression_result($1);
-          free_expression_result($3);
-      }
     | SUBTRACTION expression %prec UMINUS {
-          ExpressionResult* res = malloc(sizeof(ExpressionResult));
-          res->type = strdup("float");
-          res->doubleVal = -$2->doubleVal;
-          $$ = res;
-          free_expression_result($2);
-      }
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        if (strcmp($2->type, "int") == 0) {
+            res->type = strdup("int");
+            res->intVal = -$2->intVal;
+        } else if (strcmp($2->type, "float") == 0) {
+            res->type = strdup("float");
+            res->doubleVal = -$2->doubleVal;
+        } else {
+            semantic_error("Operador unário '-' inválido para o tipo %s.", $2->type);
+            free(res);
+            YYABORT;
+        }
+        free_expression_result($2);
+        $$ = res;
+    }
     | ID LPAREN arg_list_opt RPAREN {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("float");
