@@ -129,6 +129,8 @@ void pop_scope() {
 
 %token <str> ID TYPE STRING
 %token <num> NUMBER
+%token <num> BOOL
+
 
 %token FUN WHILE FOR IF ELSE LEN PRINT RETURN
 %token LBRACKET RBRACKET COMMA LPAREN RPAREN COLON SEMICOLON NEWLINE
@@ -343,6 +345,7 @@ lvalue:
 
 expression:
     NUMBER                                         { $$ = $1; }
+    | BOOL                                         { $$ = $1; }
     | STRING                                       { $$ = 0.0; /* String literals not implemented in expressions */ }
     | lvalue {
         if ($1 && strcmp($1, "array_access") != 0) {

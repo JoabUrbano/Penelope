@@ -11,7 +11,8 @@
 
 "fun"                { return FUN; }
 (int|float|void|any|string|bool) { yylval.str = strdup(yytext); return TYPE; }
-"true"|"false"       { yylval.str = strdup(yytext); return ID; }
+"true"  { yylval.num = 1.0; return BOOL; }
+"false" { yylval.num = 0.0; return BOOL; }
 "while"              { return WHILE; }
 "for"                { return FOR; }
 "if"                 { return IF; }
