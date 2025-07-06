@@ -18,6 +18,7 @@
 "else"               { return ELSE; }
 "len"                { return LEN; }
 "print"              { return PRINT; }
+"read"               { return READ; }
 "return"             { return RETURN; }
 
 "{"                  { return LBRACE; }
@@ -43,6 +44,8 @@
 "/"                  { return DIVISION; }
 "+"                  { return ADDITION; }
 "-"                  { return SUBTRACTION; }
+"&&"                 { return AND; }
+"||"                 { return OR; }
 
 [0-9]+\.[0-9]+       { yylval.num = atof(yytext); return NUMBER; }
 [0-9]+               { yylval.num = atof(yytext); return NUMBER; }

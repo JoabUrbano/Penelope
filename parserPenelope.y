@@ -193,10 +193,11 @@ void pop_scope() {
 %token <str> ID TYPE STRING
 %token <num> NUMBER
 
-%token FUN WHILE FOR IF ELSE LEN PRINT RETURN
+%token FUN WHILE FOR IF ELSE LEN PRINT READ RETURN
 %token LBRACKET RBRACKET COMMA LPAREN RPAREN COLON SEMICOLON NEWLINE
 %token ASSIGNMENT EQUALS SMALLEREQUALS BIGGEREQUALS SMALLER BIGGER
 %token INCREMENT DECREMENT EXPONENTIATION MULTIPLICATION DIVISION ADDITION SUBTRACTION
+%token AND OR
 %token LBRACE RBRACE
 
 %define parse.trace
@@ -205,6 +206,8 @@ void pop_scope() {
 %type <num> expression
 
 %right ASSIGNMENT
+%left OR
+%left AND
 %left EQUALS
 %left SMALLEREQUALS BIGGEREQUALS SMALLER BIGGER
 %left ADDITION SUBTRACTION
@@ -264,6 +267,7 @@ simple_stmt:
     | assign_stmt SEMICOLON
     | return_stmt SEMICOLON
     | print_stmt SEMICOLON
+    | read_stmt SEMICOLON
     | expression SEMICOLON
     ;
 
@@ -357,6 +361,18 @@ print_stmt:
     }
     ;
 
+read_stmt:
+    READ LPAREN lvalue RPAREN {
+        // Verificação semântica: variável deve estar declarada
+        if ($3 && strcmp($3, "array_access") != 0) {
+            if (find_variable_in_scopes($3) == NULL) {
+                semantic_error("Variável '%s' não declarada.", $3);
+            }
+            // Simula leitura (não implementada completamente)
+        }
+    }
+    ;
+
 print_arg_list:
     print_arg
     | print_arg_list COMMA print_arg
@@ -444,6 +460,8 @@ expression:
     | expression SMALLEREQUALS expression          { $$ = ($1 <= $3) ? 1.0 : 0.0; }
     | expression BIGGEREQUALS expression           { $$ = ($1 >= $3) ? 1.0 : 0.0; }
     | expression EQUALS expression                 { $$ = ($1 == $3) ? 1.0 : 0.0; }
+    | expression AND expression                    { $$ = ($1 != 0.0 && $3 != 0.0) ? 1.0 : 0.0; }
+    | expression OR expression                     { $$ = ($1 != 0.0 || $3 != 0.0) ? 1.0 : 0.0; }
     | SUBTRACTION expression %prec UMINUS          { $$ = -$2; }
     | ID LPAREN arg_list_opt RPAREN                { $$ = 0.0; /* Chamadas de função ainda não implementadas */ }
     | LEN LPAREN expression RPAREN                 { $$ = 0.0; /* len() ainda não implementado */ }
