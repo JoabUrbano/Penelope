@@ -10,11 +10,14 @@
 #define MAX_SCOPE_DEPTH 100
 char* scopeStack[MAX_SCOPE_DEPTH];
 int scopeTop = -1;
+int exec_block = 1;  // Flag de controle para if/else/while gustavo
 
 HashMap symbolTable = { NULL };
 HashMap valueTable = { NULL };  // Store actual values
 char *currentScope = NULL;
 int semantic_errors = 0; 
+int last_condition_result = 0;  // serve pra lembrar o resultado da condição do IF
+
 
 void semantic_error(const char* format, const char* name) {
     extern int yylineno;
@@ -130,6 +133,10 @@ void pop_scope() {
 %token <str> ID TYPE STRING
 %token <num> NUMBER
 %token <num> BOOL
+%token BREAK
+%token AND 
+%token OR
+
 
 
 %token FUN WHILE FOR IF ELSE LEN PRINT RETURN
@@ -144,15 +151,17 @@ void pop_scope() {
 %type <num> expression
 
 %right ASSIGNMENT
+%left OR
+%left AND
 %left EQUALS
 %left SMALLEREQUALS BIGGEREQUALS SMALLER BIGGER
 %left ADDITION SUBTRACTION
 %left MULTIPLICATION DIVISION
-%right EXPONENTIATION
+%right EXPONENTIATION   
 %nonassoc UMINUS 
-
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
+
 
 %start program
 
@@ -203,7 +212,17 @@ simple_stmt:
     | assign_stmt SEMICOLON
     | return_stmt SEMICOLON
     | print_stmt SEMICOLON
-    | expression SEMICOLON
+    | expression SEMICOLON {
+        if (exec_block) {
+            // Executa a expressão apenas se for dentro de bloco válido
+        }
+    }
+
+    | BREAK SEMICOLON {
+    if (exec_block) {
+        // break real ainda não implementado — só evitar erro
+    }
+}
     ;
 
 compound_stmt:
@@ -217,9 +236,27 @@ while_stmt:
     ;
 
 if_stmt:
-    IF LPAREN expression RPAREN block %prec LOWER_THAN_ELSE
-    | IF LPAREN expression RPAREN block ELSE block
+    if_stmt_no_else
+    | IF LPAREN expression RPAREN {
+        last_condition_result = ($3 != 0.0);  // armazena a condição numa variável global
+        exec_block = last_condition_result;   // ativa o bloco do if se verdadeiro
+    } block ELSE {
+        exec_block = !last_condition_result;  // ativa o bloco do else se falso
+    } block {
+        exec_block = 1;  // reseta após o else
+    }
     ;
+
+
+if_stmt_no_else:
+    IF LPAREN expression RPAREN {
+        exec_block = ($3 != 0.0);
+    } block {
+        exec_block = 1;
+    } %prec LOWER_THAN_ELSE
+
+
+
 
 for_stmt:
     FOR {
@@ -280,11 +317,12 @@ return_stmt:
     RETURN expression
     ;
 
-print_stmt:
+print_stmt: 
     PRINT LPAREN print_arg_list RPAREN {
-        print_newline();
+        if (exec_block) print_newline();
     }
-    ;
+    ;// gustavo
+
 
 print_arg_list:
     print_arg
@@ -293,17 +331,16 @@ print_arg_list:
 
 print_arg:
     expression {
-        print_value($1);
+        if (exec_block) print_value($1);
     }
     | STRING {
-        print_string($1);
+        if (exec_block) print_string($1);
     }
     ;
 
 assign_stmt:
     lvalue ASSIGNMENT expression {
-        // Verifica se a variável do lvalue foi declarada antes de atribuir
-        if ($1 && strcmp($1, "array_access") != 0) {
+        if (exec_block && $1 && strcmp($1, "array_access") != 0) {
             if (find_variable_in_scopes($1) == NULL) {
                 semantic_error("Variável '%s' não declarada.", $1);
             } else {
@@ -312,7 +349,7 @@ assign_stmt:
         }
     }
     | lvalue INCREMENT {
-        if ($1 && strcmp($1, "array_access") != 0) {
+        if (exec_block && $1 && strcmp($1, "array_access") != 0) {
             if (find_variable_in_scopes($1) == NULL) {
                 semantic_error("Variável '%s' não declarada.", $1);
             } else {
@@ -322,8 +359,8 @@ assign_stmt:
         }
     }
     | lvalue DECREMENT {
-        if ($1 && strcmp($1, "array_access") != 0) {
-             if (find_variable_in_scopes($1) == NULL) {
+        if (exec_block && $1 && strcmp($1, "array_access") != 0) {
+            if (find_variable_in_scopes($1) == NULL) {
                 semantic_error("Variável '%s' não declarada.", $1);
             } else {
                 double current = get_variable_value($1);
@@ -331,7 +368,8 @@ assign_stmt:
             }
         }
     }
-    ;
+;
+
 
 lvalue:
     ID { 
@@ -371,6 +409,9 @@ expression:
     | expression SMALLEREQUALS expression          { $$ = ($1 <= $3) ? 1.0 : 0.0; }
     | expression BIGGEREQUALS expression           { $$ = ($1 >= $3) ? 1.0 : 0.0; }
     | expression EQUALS expression                 { $$ = ($1 == $3) ? 1.0 : 0.0; }
+    | expression AND expression               { $$ = ($1 != 0.0 && $3 != 0.0) ? 1.0 : 0.0; }
+    | expression OR expression                { $$ = ($1 != 0.0 || $3 != 0.0) ? 1.0 : 0.0; }
+
     | SUBTRACTION expression %prec UMINUS          { $$ = -$2; }
     | ID LPAREN arg_list_opt RPAREN                { $$ = 0.0; /* Function calls not implemented yet */ }
     | LEN LPAREN expression RPAREN                 { $$ = 0.0; /* len() not implemented yet */ }
