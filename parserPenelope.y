@@ -551,14 +551,27 @@ expression:
         free_expression_result($3);
       }
     // Comparações: retornam 1.0 ou 0.0 (float)
+
     | expression SMALLER expression {
-          ExpressionResult* res = malloc(sizeof(ExpressionResult));
-          res->type = strdup("float");
-          res->doubleVal = ($1->doubleVal < $3->doubleVal) ? 1.0 : 0.0;
-          $$ = res;
-          free_expression_result($1);
-          free_expression_result($3);
-      }
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+
+        if (strcmp($1->type, "string") == 0 || strcmp($3->type, "string") == 0) {
+            semantic_error("O operador '<' não pode ser aplicado entre os tipos %s e %s.", $1->type, $3->type);
+            free(res);
+            YYABORT;
+        }
+
+        double leftVal = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
+        double rightVal = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
+
+        res->type = strdup("bool");
+        res->intVal = (leftVal < rightVal) ? 1 : 0;
+
+        free_expression_result($1);
+        free_expression_result($3);
+
+        $$ = res;
+    }
     | expression BIGGER expression {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("float");
