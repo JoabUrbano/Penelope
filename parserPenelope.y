@@ -336,6 +336,18 @@ type:
                                             $$ = array_type;
                                             free($1);
                                         }
+    | TYPE LBRACKET RBRACKET LBRACKET RBRACKET { 
+                                            char *array_2d_type = malloc(strlen($1) + 5);
+                                            sprintf(array_2d_type, "%s[][]", $1);
+                                            $$ = array_2d_type;
+                                            free($1);
+                                        }
+    | TYPE LBRACKET RBRACKET LBRACKET RBRACKET LBRACKET RBRACKET { 
+                                            char *array_3d_type = malloc(strlen($1) + 7);
+                                            sprintf(array_3d_type, "%s[][][]", $1);
+                                            $$ = array_3d_type;
+                                            free($1);
+                                        }
     ;
 
 list_param_opt:

@@ -25,12 +25,9 @@ fun void main() {
             print("Primeira matriz: ", linhas1, "x", colunas1);
             print("Segunda matriz: ", linhas2, "x", colunas2);
             
-            // Declaração das matrizes
-            int: tamanho1 = linhas1 * colunas1;
-            int: tamanho2 = linhas2 * colunas2;
-            
-            int[]: matriz1; // Primeira matriz
-            int[]: matriz2; // Segunda matriz
+            // Declaração das matrizes bidimensionais
+            int[][]: matriz1; // Primeira matriz 2D
+            int[][]: matriz2; // Segunda matriz 2D
             
             // LEITURA DAS MATRIZES
             print("Lendo matriz ", linhas1, "x", colunas1);
@@ -38,8 +35,7 @@ fun void main() {
             for (int: i = 0; i < linhas1; i++) {
                 for (int: j = 0; j < colunas1; j++) {
                     print("Digite o elemento [", i, ",", j, "]:");
-                    int: pos = i * colunas1 + j;
-                    read(matriz1[pos]);
+                    read(matriz1[i][j]);
                 }
             }
             
@@ -48,8 +44,7 @@ fun void main() {
             for (int: i = 0; i < linhas2; i++) {
                 for (int: j = 0; j < colunas2; j++) {
                     print("Digite o elemento [", i, ",", j, "]:");
-                    int: pos = i * colunas2 + j;
-                    read(matriz2[pos]);
+                    read(matriz2[i][j]);
                 }
             }
             
@@ -58,8 +53,7 @@ fun void main() {
             print("Matriz A:");
             for (int: i = 0; i < linhas1; i++) {
                 for (int: j = 0; j < colunas1; j++) {
-                    int: pos = i * colunas1 + j;
-                    print(matriz1[pos], " ");
+                    print(matriz1[i][j], " ");
                 }
                 print("\n"); // Nova linha após cada linha da matriz
             }
@@ -67,8 +61,7 @@ fun void main() {
             print("Matriz B:");
             for (int: i = 0; i < linhas2; i++) {
                 for (int: j = 0; j < colunas2; j++) {
-                    int: pos = i * colunas2 + j;
-                    print(matriz2[pos], " ");
+                    print(matriz2[i][j], " ");
                 }
                 print("\n"); // Nova linha após cada linha da matriz
             }
@@ -81,20 +74,18 @@ fun void main() {
             if (podeSomar) {
                 print("Soma possível: as matrizes têm as mesmas dimensões");
                 
-                int[]: matrizSoma; // Matriz resultado da soma
+                int[][]: matrizSoma; // Matriz resultado da soma 2D
                 
                 for (int: i = 0; i < linhas1; i++) {
                     for (int: j = 0; j < colunas1; j++) {
-                        int: pos = i * colunas1 + j;
-                        matrizSoma[pos] = matriz1[pos] + matriz2[pos];
+                        matrizSoma[i][j] = matriz1[i][j] + matriz2[i][j];
                     }
                 }
                 
                 print("RESULTADO DA SOMA (A + B):");
                 for (int: i = 0; i < linhas1; i++) {
                     for (int: j = 0; j < colunas1; j++) {
-                        int: pos = i * colunas1 + j;
-                        print(matrizSoma[pos], " ");
+                        print(matrizSoma[i][j], " ");
                     }
                     print("\n"); // Nova linha após cada linha da matriz
                 }
@@ -117,7 +108,7 @@ fun void main() {
                 int: colunasResultado = colunas2;
                 print("Matriz resultado terá dimensões:", linhasResultado, "x", colunasResultado);
                 
-                int[]: matrizProduto; // Matriz resultado da multiplicação
+                int[][]: matrizProduto; // Matriz resultado da multiplicação 2D
                 
                 // Algoritmo de multiplicação de matrizes
                 for (int: i = 0; i < linhas1; i++) {
@@ -125,21 +116,17 @@ fun void main() {
                         int: soma = 0;
                         
                         for (int: k = 0; k < colunas1; k++) {
-                            int: posM1 = i * colunas1 + k;
-                            int: posM2 = k * colunas2 + j;
-                            soma = soma + (matriz1[posM1] * matriz2[posM2]);
+                            soma = soma + (matriz1[i][k] * matriz2[k][j]);
                         }
                         
-                        int: posResultado = i * colunas2 + j;
-                        matrizProduto[posResultado] = soma;
+                        matrizProduto[i][j] = soma;
                     }
                 }
                 
                 print("RESULTADO DA MULTIPLICAÇÃO (A x B):");
                 for (int: i = 0; i < linhasResultado; i++) {
                     for (int: j = 0; j < colunasResultado; j++) {
-                        int: pos = i * colunasResultado + j;
-                        print(matrizProduto[pos], " ");
+                        print(matrizProduto[i][j], " ");
                     }
                     print("\n"); // Nova linha após cada linha da matriz
                 }
