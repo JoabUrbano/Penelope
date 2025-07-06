@@ -54,6 +54,17 @@ Node* find_variable_in_scopes(char *name) {
     return NULL; // Variável não encontrada em nenhum escopo
 }
 
+Node* find_variable_in_current_scope(char *name) {
+    if (currentScope == NULL) return NULL;
+    
+    char *fullKey = malloc(strlen(currentScope) + strlen(name) + 2);
+    sprintf(fullKey, "%s#%s", currentScope, name);
+    
+    Node *node = find_node(&symbolTable, fullKey);
+    free(fullKey);
+    
+    return node;
+}
 
 double evaluate_number(char *str) {
     return atof(str);
@@ -230,6 +241,12 @@ for_init:
 
 decl:
       | type COLON ID {
+         if (find_variable_in_current_scope($3) != NULL) {
+              semantic_error("Variável '%s' já declarada no escopo atual.", $3);
+              YYABORT;
+          }
+
+
         // Cria chave completa com escopo: "escopo#variavel"
         char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
         
@@ -238,6 +255,7 @@ decl:
 
             YYABORT;
         }
+        
 
         sprintf(fullKey, "%s#%s", currentScope, $3);
 
@@ -250,6 +268,11 @@ decl:
         free(fullKey);
     }
     | type COLON ID ASSIGNMENT expression {
+        if (find_variable_in_current_scope($3) != NULL) {
+              semantic_error("Variável '%s' já declarada no escopo atual.", $3);
+              YYABORT;
+        }
+        
         char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
         if (!fullKey) {
             semantic_error("Erro de alocação de memória para chave.\n");
@@ -322,7 +345,7 @@ param:
     ;
 
 return_stmt:
-    RETURN expression
+    RETURN expression { /* Poderia adicionar verificação de tipo de retorno aqui */ }
     ;
 
 print_stmt:
@@ -696,13 +719,13 @@ list_expression:
     ;
 
 arg_list_opt:
-                                                   { /* empty */ }
-    | arg_list                                     { /* argument list */ }
+                                                   { /* vazio */ }
+    | arg_list                                     { /* lista de argumentos */ }
     ;
 
 arg_list:
-    expression                                     { /* single argument */ }
-    | arg_list COMMA expression                    { /* multiple arguments */ }
+    expression                                     { /* argumento único */ }
+    | arg_list COMMA expression                    { /* múltiplos argumentos */ }
     ;
 
 %%
