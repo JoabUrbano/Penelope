@@ -9,6 +9,8 @@
 #include "./utils/uniqueIdentifier/uniqueIdentifier.h"
 
 #define MAX_SCOPE_DEPTH 100
+#define MAX_CODE_SIZE 10000
+
 char* scopeStack[MAX_SCOPE_DEPTH];
 int scopeTop = -1;
 int exec_block = 1;  // Flag de controle para if/else/while gustavo
@@ -17,6 +19,12 @@ HashMap symbolTable = { NULL };
 char *currentScope = NULL;
 int semantic_errors = 0; 
 int last_condition_result = 0;  // serve pra lembrar o resultado da condição do IF
+
+// Code generation globals
+char generated_code[MAX_CODE_SIZE];
+int code_position = 0;
+int indent_level = 0;
+int generate_code = 1;  // Flag to enable/disable code generation
 
 
 
@@ -57,6 +65,101 @@ void semantic_error(const char* format, ...) {
 
     fprintf(stderr, "\n");
     semantic_errors++;
+}
+
+// Code generation helper functions
+void emit_code(const char* format, ...) {
+    if (!generate_code) return;
+    
+    va_list args;
+    va_start(args, format);
+    
+    // Add indentation
+    for (int i = 0; i < indent_level; i++) {
+        if (code_position < MAX_CODE_SIZE - 1) {
+            generated_code[code_position++] = ' ';
+            generated_code[code_position++] = ' ';
+        }
+    }
+    
+    // Add the formatted code
+    int remaining = MAX_CODE_SIZE - code_position - 1;
+    if (remaining > 0) {
+        int written = vsnprintf(generated_code + code_position, remaining, format, args);
+        if (written > 0 && written < remaining) {
+            code_position += written;
+        }
+    }
+    
+    va_end(args);
+}
+
+void emit_line(const char* format, ...) {
+    if (!generate_code) return;
+    
+    va_list args;
+    va_start(args, format);
+    
+    // Add indentation
+    for (int i = 0; i < indent_level; i++) {
+        if (code_position < MAX_CODE_SIZE - 1) {
+            generated_code[code_position++] = ' ';
+            generated_code[code_position++] = ' ';
+        }
+    }
+    
+    // Add the formatted code
+    int remaining = MAX_CODE_SIZE - code_position - 1;
+    if (remaining > 0) {
+        int written = vsnprintf(generated_code + code_position, remaining, format, args);
+        if (written > 0 && written < remaining) {
+            code_position += written;
+        }
+    }
+    
+    // Add newline
+    if (code_position < MAX_CODE_SIZE - 1) {
+        generated_code[code_position++] = '\n';
+    }
+    
+    va_end(args);
+}
+
+void increase_indent() {
+    indent_level++;
+}
+
+void decrease_indent() {
+    if (indent_level > 0) indent_level--;
+}
+
+char* convert_penelope_type_to_c(const char* penelopeType) {
+    if (strcmp(penelopeType, "int") == 0) return "int";
+    if (strcmp(penelopeType, "float") == 0) return "float";
+    if (strcmp(penelopeType, "string") == 0) return "char*";
+    if (strstr(penelopeType, "int[]")) return "int*";
+    if (strstr(penelopeType, "float[]")) return "float*";
+    if (strstr(penelopeType, "string[]")) return "char**";
+    return "void"; // fallback
+}
+
+void init_code_generation() {
+    code_position = 0;
+    indent_level = 0;
+    memset(generated_code, 0, MAX_CODE_SIZE);
+    
+    // Emit C headers and main function start
+    emit_line("#include <stdio.h>");
+    emit_line("#include <stdlib.h>");
+    emit_line("#include <string.h>");
+    emit_line("");
+}
+
+void finalize_code_generation() {
+    // Close any open main function if needed
+    if (code_position > 0) {
+        generated_code[code_position] = '\0';
+    }
 }
 
 Node* find_variable_in_scopes(char *name) {
@@ -289,7 +392,46 @@ compound_stmt:
     ;
 
 while_stmt:
-    WHILE LPAREN expression RPAREN block
+    WHILE LPAREN expression RPAREN {
+        // Avalia a expressão como condição booleana para o while
+        int condition = 0;
+        if (strcmp($3->type, "bool") == 0) {
+            condition = $3->intVal;
+        } else if (strcmp($3->type, "int") == 0) {
+            condition = ($3->intVal != 0);
+        } else if (strcmp($3->type, "float") == 0) {
+            condition = ($3->doubleVal != 0.0);
+        } else {
+            semantic_error("Condição while deve ser do tipo bool, int ou float, mas foi '%s'.", $3->type);
+        }
+        
+        // Generate C code for while statement
+        if (generate_code) {
+            if (strcmp($3->type, "bool") == 0) {
+                emit_line("while (%d) {", $3->intVal);
+            } else if (strcmp($3->type, "int") == 0) {
+                emit_line("while (%d) {", $3->intVal);
+            } else if (strcmp($3->type, "float") == 0) {
+                emit_line("while (%f) {", $3->doubleVal);
+            }
+            increase_indent();
+        }
+        
+        // Simula múltiplas iterações do loop para análise semântica
+        // Isso permite que o parser "execute" o corpo do loop várias vezes
+        // para demonstrar o comportamento esperado
+        exec_block = condition;
+        free_expression_result($3);
+    } block {
+        // Generate C code closing brace for while
+        if (generate_code) {
+            decrease_indent();
+            emit_line("}");
+        }
+        
+        // Após executar o bloco uma vez, reseta o controle de execução
+        exec_block = 1;
+    }
     ;
 
 if_stmt:
@@ -306,10 +448,27 @@ if_stmt:
             semantic_error("Condição if deve ser do tipo bool, int ou float, mas foi '%s'.", $3->type);
         }
         
+        // Generate C code for if statement
+        if (generate_code) {
+            if (strcmp($3->type, "bool") == 0) {
+                emit_line("if (%d) {", $3->intVal);
+            } else if (strcmp($3->type, "int") == 0) {
+                emit_line("if (%d) {", $3->intVal);
+            } else if (strcmp($3->type, "float") == 0) {
+                emit_line("if (%f) {", $3->doubleVal);
+            }
+            increase_indent();
+        }
+        
         last_condition_result = condition;
         exec_block = last_condition_result;
         free_expression_result($3);
     } block else_part {
+        // Generate C code closing brace for if
+        if (generate_code) {
+            decrease_indent();
+            emit_line("}");
+        }
         exec_block = 1;  // reseta após o if
     }
     ;
@@ -319,9 +478,24 @@ else_part:
         // No else clause
     }
     | ELSE {
+        // Generate C code for else
+        if (generate_code) {
+            emit_line("else {");
+            increase_indent();
+        }
         exec_block = !last_condition_result;  // ativa o bloco do else se falso
-    } block
+    } block {
+        // Generate C code closing brace for else
+        if (generate_code) {
+            decrease_indent();
+            emit_line("}");
+        }
+    }
     | ELSE {
+        // Generate C code for else if
+        if (generate_code) {
+            emit_code("else ");
+        }
         exec_block = !last_condition_result;  // ativa o bloco do else se falso
     } if_stmt
 
@@ -350,6 +524,11 @@ decl:
               YYABORT;
           }
 
+        // Generate C code for variable declaration
+        if (generate_code) {
+            char* c_type = convert_penelope_type_to_c($1);
+            emit_line("%s %s;", c_type, $3);
+        }
 
         // Cria chave completa com escopo: "escopo#variavel"
         char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
@@ -389,6 +568,20 @@ decl:
             free(fullKey);
             semantic_error("Tipo incompatível: a variável de tipo %s não pode receber o tipo %s\n", $1, $5->type);
             YYABORT;
+        }
+
+        // Generate C code for variable declaration with assignment
+        if (generate_code) {
+            char* c_type = convert_penelope_type_to_c($1);
+            if (strcmp($5->type, "string") == 0) {
+                emit_line("%s %s = \"%s\";", c_type, $3, $5->strVal ? $5->strVal : "");
+            } else if (strcmp($5->type, "int") == 0) {
+                emit_line("%s %s = %d;", c_type, $3, $5->intVal);
+            } else if (strcmp($5->type, "float") == 0) {
+                emit_line("%s %s = %f;", c_type, $3, $5->doubleVal);
+            } else if (strcmp($5->type, "bool") == 0) {
+                emit_line("%s %s = %d;", c_type, $3, $5->intVal);
+            }
         }
 
         Data newData;
@@ -490,6 +683,10 @@ return_stmt:
 print_stmt: 
     PRINT LPAREN print_arg_list RPAREN {
         if (exec_block) print_newline();
+        // Generate C code for newline after print
+        if (generate_code) {
+            emit_line("printf(\"\\n\");");
+        }
     }
     ;// gustavo
 
@@ -521,6 +718,30 @@ print_arg_list:
 print_arg:
     expression {
         if (exec_block) print_value($1);
+        
+        // Generate C code for printing the expression
+        if (generate_code) {
+            if (strcmp($1->type, "int") == 0) {
+                emit_code("printf(\"%%d \", %d); ", $1->intVal);
+            } else if (strcmp($1->type, "float") == 0) {
+                emit_code("printf(\"%%.6g \", %f); ", $1->doubleVal);
+            } else if (strcmp($1->type, "bool") == 0) {
+                emit_code("printf(\"%%s \", %s); ", $1->intVal ? "\"true\"" : "\"false\"");
+            } else if (strcmp($1->type, "string") == 0) {
+                // Remove quotes from string literal for display
+                char* str_val = $1->strVal;
+                if (str_val && str_val[0] == '"' && str_val[strlen(str_val)-1] == '"') {
+                    // Create temp string without quotes
+                    char temp[1000];
+                    strncpy(temp, str_val + 1, strlen(str_val) - 2);
+                    temp[strlen(str_val) - 2] = '\0';
+                    emit_code("printf(\"%%s \", \"%s\"); ", temp);
+                } else {
+                    emit_code("printf(\"%%s \", \"%s\"); ", str_val ? str_val : "");
+                }
+            }
+        }
+        
         free_expression_result($1);
     }
     ;
@@ -540,6 +761,11 @@ assign_stmt:
                     YYABORT;
                 }
             }
+            // Generate C code for array assignment
+            if (generate_code) {
+                // For array assignment, we'll generate a comment since we need the actual index expression
+                emit_line("// %s[<index>] = <value>; // Array assignment not fully implemented in code generation", $1->varName);
+            }
             // TODO: Implementar armazenamento real de valores em arrays
         } else if ($1->type == LVALUE_VAR) {
             if (find_variable_in_scopes($1->varName) == NULL) {
@@ -548,6 +774,18 @@ assign_stmt:
                 free_expression_result($3);
                 YYABORT;
             } else {
+                // Generate C code for variable assignment
+                if (generate_code) {
+                    if (strcmp($3->type, "int") == 0) {
+                        emit_line("%s = %d;", $1->varName, $3->intVal);
+                    } else if (strcmp($3->type, "float") == 0) {
+                        emit_line("%s = %f;", $1->varName, $3->doubleVal);
+                    } else if (strcmp($3->type, "string") == 0) {
+                        emit_line("%s = \"%s\";", $1->varName, $3->strVal ? $3->strVal : "");
+                    } else if (strcmp($3->type, "bool") == 0) {
+                        emit_line("%s = %d;", $1->varName, $3->intVal);
+                    }
+                }
                 // store_variable_value($1->varName, $3);
             }
         }
@@ -1060,10 +1298,22 @@ void yyerror(const char* s) {
 }
 
 int main(int argc, char **argv) {
-    if (argc > 1) {
-        FILE *file = fopen(argv[1], "r");
+    int output_c_code = 0;
+    char *input_file = NULL;
+    
+    // Parse command line arguments
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--generate-c") == 0 || strcmp(argv[i], "-c") == 0) {
+            output_c_code = 1;
+        } else if (argv[i][0] != '-') {
+            input_file = argv[i];
+        }
+    }
+    
+    if (input_file) {
+        FILE *file = fopen(input_file, "r");
         if (!file) {
-            perror(argv[1]);
+            perror(input_file);
             return 1;
         }
         yyin = file;
@@ -1071,17 +1321,41 @@ int main(int argc, char **argv) {
         yyin = stdin;
     }
 
+    // Initialize code generation
+    if (output_c_code) {
+        generate_code = 1;
+        init_code_generation();
+        emit_line("int main() {");
+        increase_indent();
+    } else {
+        generate_code = 0;
+    }
+
     push_scope(strdup("global"));
 
     int parse_result = yyparse();
     
-    if (parse_result == 0 && semantic_errors == 0) {
-        printf("Análise concluída com sucesso. A sintaxe e a semântica estão corretas!\n");
+    if (output_c_code) {
+        // Finalize C code generation
+        decrease_indent();
+        emit_line("return 0;");
+        emit_line("}");
+        finalize_code_generation();
+        
+        if (parse_result == 0 && semantic_errors == 0) {
+            printf("// Generated C code from Penelope\n");
+            printf("%s\n", generated_code);
+        } else {
+            fprintf(stderr, "Code generation failed due to %d errors.\n", semantic_errors);
+        }
     } else {
-        printf("Falha na análise. Foram encontrados %d erros.\n", semantic_errors);
+        if (parse_result == 0 && semantic_errors == 0) {
+            printf("Análise concluída com sucesso. A sintaxe e a semântica estão corretas!\n");
+        } else {
+            printf("Falha na análise. Foram encontrados %d erros.\n", semantic_errors);
+        }
+        print_map(&symbolTable);
     }
-
-    print_map(&symbolTable);
     
     // Libera o escopo global
     pop_scope(); 
