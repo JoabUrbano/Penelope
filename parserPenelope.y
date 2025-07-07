@@ -25,6 +25,7 @@ char generated_code[MAX_CODE_SIZE];
 int code_position = 0;
 int indent_level = 0;
 int generate_code = 1;  // Flag to enable/disable code generation
+int label_counter = 0;  // Para gerar labels únicos
 
 
 
@@ -74,15 +75,7 @@ void emit_code(const char* format, ...) {
     va_list args;
     va_start(args, format);
     
-    // Add indentation
-    for (int i = 0; i < indent_level; i++) {
-        if (code_position < MAX_CODE_SIZE - 1) {
-            generated_code[code_position++] = ' ';
-            generated_code[code_position++] = ' ';
-        }
-    }
-    
-    // Add the formatted code
+    // Add the formatted code (sem indentação automática)
     int remaining = MAX_CODE_SIZE - code_position - 1;
     if (remaining > 0) {
         int written = vsnprintf(generated_code + code_position, remaining, format, args);
@@ -100,15 +93,7 @@ void emit_line(const char* format, ...) {
     va_list args;
     va_start(args, format);
     
-    // Add indentation
-    for (int i = 0; i < indent_level; i++) {
-        if (code_position < MAX_CODE_SIZE - 1) {
-            generated_code[code_position++] = ' ';
-            generated_code[code_position++] = ' ';
-        }
-    }
-    
-    // Add the formatted code
+    // Add the formatted code (sem indentação automática)
     int remaining = MAX_CODE_SIZE - code_position - 1;
     if (remaining > 0) {
         int written = vsnprintf(generated_code + code_position, remaining, format, args);
@@ -125,14 +110,6 @@ void emit_line(const char* format, ...) {
     va_end(args);
 }
 
-void increase_indent() {
-    indent_level++;
-}
-
-void decrease_indent() {
-    if (indent_level > 0) indent_level--;
-}
-
 char* convert_penelope_type_to_c(const char* penelopeType) {
     if (strcmp(penelopeType, "int") == 0) return "int";
     if (strcmp(penelopeType, "float") == 0) return "float";
@@ -143,9 +120,14 @@ char* convert_penelope_type_to_c(const char* penelopeType) {
     return "void"; // fallback
 }
 
+int generate_label() {
+    return ++label_counter;
+}
+
 void init_code_generation() {
     code_position = 0;
     indent_level = 0;
+    label_counter = 0;
     memset(generated_code, 0, MAX_CODE_SIZE);
     
     // Emit C headers and main function start
@@ -248,6 +230,30 @@ void pop_scope() {
 }
 
 %code {
+    // Generate C code for an expression
+    char* expression_to_c_code(ExpressionResult* expr) {
+        static char buffer[256];
+        
+        if (!expr) {
+            strcpy(buffer, "0");
+            return buffer;
+        }
+        
+        if (strcmp(expr->type, "int") == 0) {
+            snprintf(buffer, sizeof(buffer), "%d", expr->intVal);
+        } else if (strcmp(expr->type, "float") == 0) {
+            snprintf(buffer, sizeof(buffer), "%f", expr->doubleVal);
+        } else if (strcmp(expr->type, "bool") == 0) {
+            snprintf(buffer, sizeof(buffer), "%d", expr->intVal);
+        } else if (strcmp(expr->type, "string") == 0) {
+            snprintf(buffer, sizeof(buffer), "\"%s\"", expr->strVal ? expr->strVal : "");
+        } else {
+            strcpy(buffer, "0");
+        }
+        
+        return buffer;
+    }
+
     void print_value(ExpressionResult* expr) {
         if (!expr) return;
         
@@ -279,6 +285,7 @@ void pop_scope() {
     double num;
     ExpressionResult* exprResult;
     LValueResult* lvalueResult;
+    int labelNum;  // Para armazenar números de labels
 }
 
 
@@ -302,6 +309,7 @@ void pop_scope() {
 %type <lvalueResult> lvalue
 %type <str> type list_expression
 %type <exprResult> expression
+%type <labelNum> while_start if_start
 
 %right ASSIGNMENT
 %left OR
@@ -392,6 +400,19 @@ compound_stmt:
     ;
 
 while_stmt:
+    while_start block {
+        // Generate C code for end of while loop (goto back to condition)
+        if (generate_code) {
+            emit_line("goto L%d;", $1);  // Volta para testar a condição
+            emit_line("L%d:", $1 + 1);   // Label de saída do while
+        }
+        
+        // Após executar o bloco uma vez, reseta o controle de execução
+        exec_block = 1;
+    }
+    ;
+
+while_start:
     WHILE LPAREN expression RPAREN {
         // Avalia a expressão como condição booleana para o while
         int condition = 0;
@@ -405,36 +426,57 @@ while_stmt:
             semantic_error("Condição while deve ser do tipo bool, int ou float, mas foi '%s'.", $3->type);
         }
         
-        // Generate C code for while statement
+        // Generate C code for while using goto
+        int start_label = generate_label();
+        int end_label = generate_label();
+        
         if (generate_code) {
-            if (strcmp($3->type, "bool") == 0) {
-                emit_line("while (%d) {", $3->intVal);
-            } else if (strcmp($3->type, "int") == 0) {
-                emit_line("while (%d) {", $3->intVal);
-            } else if (strcmp($3->type, "float") == 0) {
-                emit_line("while (%f) {", $3->doubleVal);
+            emit_line("L%d:", start_label);  // Label de início do loop
+            
+            // Para expressões mais complexas, geramos uma variável temporária
+            emit_line("// while loop condition evaluation");
+            
+            // Testa condição e salta para o fim se falsa usando o código C gerado
+            if ($3->c_code) {
+                emit_line("if (!(%s)) goto L%d;", $3->c_code, end_label);
+            } else {
+                emit_line("if (!(%s)) goto L%d;", expression_to_c_code($3), end_label);
             }
-            increase_indent();
         }
         
         // Simula múltiplas iterações do loop para análise semântica
-        // Isso permite que o parser "execute" o corpo do loop várias vezes
-        // para demonstrar o comportamento esperado
         exec_block = condition;
         free_expression_result($3);
-    } block {
-        // Generate C code closing brace for while
-        if (generate_code) {
-            decrease_indent();
-            emit_line("}");
-        }
         
-        // Após executar o bloco uma vez, reseta o controle de execução
-        exec_block = 1;
+        $$ = start_label;  // Retorna o label de início para usar no final
     }
     ;
 
 if_stmt:
+    if_start block {
+        // Generate C code closing label for if (no else case)
+        if (generate_code) {
+            emit_line("L%d:", $1);  // Label do else/fim
+        }
+        exec_block = 1;  // reseta após o if
+    }
+    | if_start block ELSE {
+        // Generate C code for else using goto
+        if (generate_code) {
+            emit_line("goto L%d;", $1 + 1);  // Pula para o fim do if
+            emit_line("L%d:", $1);           // Label do else
+        }
+        exec_block = !last_condition_result;  // ativa o bloco do else se falso
+    } block {
+        // Generate C code closing label for if-else
+        if (generate_code) {
+            emit_line("L%d:", $1 + 1);  // Label de fim
+        }
+        exec_block = 1;  // reseta após o if
+    }
+    ;
+
+if_start:
     IF LPAREN expression RPAREN {
         // Avalia a expressão como condição booleana
         int condition = 0;
@@ -448,56 +490,26 @@ if_stmt:
             semantic_error("Condição if deve ser do tipo bool, int ou float, mas foi '%s'.", $3->type);
         }
         
-        // Generate C code for if statement
+        // Generate C code for if using goto
+        int else_label = generate_label();
+        int end_label = generate_label();
+        
         if (generate_code) {
-            if (strcmp($3->type, "bool") == 0) {
-                emit_line("if (%d) {", $3->intVal);
-            } else if (strcmp($3->type, "int") == 0) {
-                emit_line("if (%d) {", $3->intVal);
-            } else if (strcmp($3->type, "float") == 0) {
-                emit_line("if (%f) {", $3->doubleVal);
+            // Testa condição e salta para else/fim se falsa usando o código C gerado
+            if ($3->c_code) {
+                emit_line("if (!(%s)) goto L%d;", $3->c_code, else_label);
+            } else {
+                emit_line("if (!(%s)) goto L%d;", expression_to_c_code($3), else_label);
             }
-            increase_indent();
         }
         
         last_condition_result = condition;
         exec_block = last_condition_result;
         free_expression_result($3);
-    } block else_part {
-        // Generate C code closing brace for if
-        if (generate_code) {
-            decrease_indent();
-            emit_line("}");
-        }
-        exec_block = 1;  // reseta após o if
+        
+        $$ = else_label;  // Retorna o label do else para usar depois
     }
     ;
-
-else_part:
-    /* empty */ {
-        // No else clause
-    }
-    | ELSE {
-        // Generate C code for else
-        if (generate_code) {
-            emit_line("else {");
-            increase_indent();
-        }
-        exec_block = !last_condition_result;  // ativa o bloco do else se falso
-    } block {
-        // Generate C code closing brace for else
-        if (generate_code) {
-            decrease_indent();
-            emit_line("}");
-        }
-    }
-    | ELSE {
-        // Generate C code for else if
-        if (generate_code) {
-            emit_code("else ");
-        }
-        exec_block = !last_condition_result;  // ativa o bloco do else se falso
-    } if_stmt
 
 
 
@@ -722,22 +734,38 @@ print_arg:
         // Generate C code for printing the expression
         if (generate_code) {
             if (strcmp($1->type, "int") == 0) {
-                emit_code("printf(\"%%d \", %d); ", $1->intVal);
-            } else if (strcmp($1->type, "float") == 0) {
-                emit_code("printf(\"%%.6g \", %f); ", $1->doubleVal);
-            } else if (strcmp($1->type, "bool") == 0) {
-                emit_code("printf(\"%%s \", %s); ", $1->intVal ? "\"true\"" : "\"false\"");
-            } else if (strcmp($1->type, "string") == 0) {
-                // Remove quotes from string literal for display
-                char* str_val = $1->strVal;
-                if (str_val && str_val[0] == '"' && str_val[strlen(str_val)-1] == '"') {
-                    // Create temp string without quotes
-                    char temp[1000];
-                    strncpy(temp, str_val + 1, strlen(str_val) - 2);
-                    temp[strlen(str_val) - 2] = '\0';
-                    emit_code("printf(\"%%s \", \"%s\"); ", temp);
+                if ($1->c_code) {
+                    emit_code("printf(\"%%d \", %s); ", $1->c_code);
                 } else {
-                    emit_code("printf(\"%%s \", \"%s\"); ", str_val ? str_val : "");
+                    emit_code("printf(\"%%d \", %d); ", $1->intVal);
+                }
+            } else if (strcmp($1->type, "float") == 0) {
+                if ($1->c_code) {
+                    emit_code("printf(\"%%.6g \", %s); ", $1->c_code);
+                } else {
+                    emit_code("printf(\"%%.6g \", %f); ", $1->doubleVal);
+                }
+            } else if (strcmp($1->type, "bool") == 0) {
+                if ($1->c_code) {
+                    emit_code("printf(\"%%s \", (%s) ? \"true\" : \"false\"); ", $1->c_code);
+                } else {
+                    emit_code("printf(\"%%s \", %s); ", $1->intVal ? "\"true\"" : "\"false\"");
+                }
+            } else if (strcmp($1->type, "string") == 0) {
+                if ($1->c_code) {
+                    emit_code("printf(\"%%s \", %s); ", $1->c_code);
+                } else {
+                    // Remove quotes from string literal for display
+                    char* str_val = $1->strVal;
+                    if (str_val && str_val[0] == '"' && str_val[strlen(str_val)-1] == '"') {
+                        // Create temp string without quotes
+                        char temp[1000];
+                        strncpy(temp, str_val + 1, strlen(str_val) - 2);
+                        temp[strlen(str_val) - 2] = '\0';
+                        emit_code("printf(\"%%s \", \"%s\"); ", temp);
+                    } else {
+                        emit_code("printf(\"%%s \", \"%s\"); ", str_val ? str_val : "");
+                    }
                 }
             }
         }
@@ -776,14 +804,10 @@ assign_stmt:
             } else {
                 // Generate C code for variable assignment
                 if (generate_code) {
-                    if (strcmp($3->type, "int") == 0) {
-                        emit_line("%s = %d;", $1->varName, $3->intVal);
-                    } else if (strcmp($3->type, "float") == 0) {
-                        emit_line("%s = %f;", $1->varName, $3->doubleVal);
-                    } else if (strcmp($3->type, "string") == 0) {
-                        emit_line("%s = \"%s\";", $1->varName, $3->strVal ? $3->strVal : "");
-                    } else if (strcmp($3->type, "bool") == 0) {
-                        emit_line("%s = %d;", $1->varName, $3->intVal);
+                    if ($3->c_code) {
+                        emit_line("%s = %s;", $1->varName, $3->c_code);
+                    } else {
+                        emit_line("%s = %s;", $1->varName, expression_to_c_code($3));
                     }
                 }
                 // store_variable_value($1->varName, $3);
@@ -885,25 +909,33 @@ expression:
     BOOL {
         ExpressionResult* result = malloc(sizeof(ExpressionResult));
         result->type = strdup("bool");
-        result->intVal = $1;
+        result->intVal = (int)$1;
+        result->c_code = malloc(16);
+        snprintf(result->c_code, 16, "%d", (int)$1);
         $$ = result;
     }
     | INT {
         ExpressionResult* result = malloc(sizeof(ExpressionResult));
         result->type = strdup("int");
-        result->intVal = $1;
+        result->intVal = (int)$1;
+        result->c_code = malloc(32);
+        snprintf(result->c_code, 32, "%d", (int)$1);
         $$ = result;
     }
     | FLOAT {
         ExpressionResult* result = malloc(sizeof(ExpressionResult));
         result->type = strdup("float");
         result->doubleVal = $1;
+        result->c_code = malloc(32);
+        snprintf(result->c_code, 32, "%f", $1);
         $$ = result;
     }
     | STRING {
           ExpressionResult* result = malloc(sizeof(ExpressionResult));
           result->type = strdup("string");
           result->strVal = strdup($1);
+          result->c_code = malloc(strlen($1) + 3);
+          snprintf(result->c_code, strlen($1) + 3, "\"%s\"", $1);
           $$ = result;
       }
     | lvalue {
@@ -912,6 +944,8 @@ expression:
         if ($1->type == LVALUE_ARRAY_ACCESS) {
             // Manipula acesso a array - usa o tipo do elemento especificado
             result->type = strdup($1->elementType);
+            result->c_code = malloc(strlen($1->varName) + 20);
+            snprintf(result->c_code, strlen($1->varName) + 20, "%s[0]", $1->varName); // simplified array access
             
             // Define valores padrão baseados no tipo do elemento
             if (strcmp($1->elementType, "int") == 0) {
@@ -938,6 +972,7 @@ expression:
                 YYABORT;
             } else {
                 result->type = strdup(varNode->value.type);
+                result->c_code = strdup($1->varName); // Just use the variable name
 
             if (strcmp(varNode->value.type, "int") == 0) {
                 result->intVal = varNode->value.value.intVal;
@@ -967,6 +1002,14 @@ expression:
       }
     | expression ADDITION expression {
         ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        
+        // Generate C code for addition
+        if ($1->c_code && $3->c_code) {
+            res->c_code = malloc(strlen($1->c_code) + strlen($3->c_code) + 10);
+            snprintf(res->c_code, strlen($1->c_code) + strlen($3->c_code) + 10, "(%s + %s)", $1->c_code, $3->c_code);
+        } else {
+            res->c_code = strdup("(0 + 0)"); // fallback
+        }
         
         if (strcmp($1->type, "float") == 0 || strcmp($3->type, "float") == 0) {
             res->type = strdup("float");
@@ -1059,6 +1102,14 @@ expression:
              semantic_error("Operador '<' inválido entre os tipos %s e %s.", $1->type, $3->type);
              free(res);
              YYABORT;
+        }
+
+        // Generate C code for comparison
+        if ($1->c_code && $3->c_code) {
+            res->c_code = malloc(strlen($1->c_code) + strlen($3->c_code) + 10);
+            snprintf(res->c_code, strlen($1->c_code) + strlen($3->c_code) + 10, "(%s < %s)", $1->c_code, $3->c_code);
+        } else {
+            res->c_code = strdup("(0 < 0)"); // fallback
         }
 
         double left = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
@@ -1300,11 +1351,15 @@ void yyerror(const char* s) {
 int main(int argc, char **argv) {
     int output_c_code = 0;
     char *input_file = NULL;
+    char *output_file = NULL;
     
     // Parse command line arguments
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--generate-c") == 0 || strcmp(argv[i], "-c") == 0) {
             output_c_code = 1;
+        } else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
+            output_file = argv[i + 1];
+            i++; // Skip next argument since it's the output file name
         } else if (argv[i][0] != '-') {
             input_file = argv[i];
         }
@@ -1326,7 +1381,6 @@ int main(int argc, char **argv) {
         generate_code = 1;
         init_code_generation();
         emit_line("int main() {");
-        increase_indent();
     } else {
         generate_code = 0;
     }
@@ -1337,14 +1391,45 @@ int main(int argc, char **argv) {
     
     if (output_c_code) {
         // Finalize C code generation
-        decrease_indent();
         emit_line("return 0;");
         emit_line("}");
         finalize_code_generation();
         
         if (parse_result == 0 && semantic_errors == 0) {
-            printf("// Generated C code from Penelope\n");
-            printf("%s\n", generated_code);
+            // Determine output file name
+            char *c_output_file = output_file;
+            char default_output[256];
+            
+            if (!c_output_file) {
+                // Generate default output file name based on input file
+                if (input_file) {
+                    char *dot = strrchr(input_file, '.');
+                    char *slash = strrchr(input_file, '/');
+                    char *basename = slash ? slash + 1 : input_file;
+                    
+                    if (dot && dot > basename) {
+                        int base_len = dot - basename;
+                        snprintf(default_output, sizeof(default_output), "%.*s.c", base_len, basename);
+                    } else {
+                        snprintf(default_output, sizeof(default_output), "%s.c", basename);
+                    }
+                } else {
+                    strcpy(default_output, "output.c");
+                }
+                c_output_file = default_output;
+            }
+            
+            // Write generated C code to file
+            FILE *output_fp = fopen(c_output_file, "w");
+            if (output_fp) {
+                fprintf(output_fp, "// Generated C code from Penelope\n");
+                fprintf(output_fp, "%s\n", generated_code);
+                fclose(output_fp);
+                printf("C code generated successfully: %s\n", c_output_file);
+            } else {
+                fprintf(stderr, "Error: Could not create output file '%s'\n", c_output_file);
+                return 1;
+            }
         } else {
             fprintf(stderr, "Code generation failed due to %d errors.\n", semantic_errors);
         }

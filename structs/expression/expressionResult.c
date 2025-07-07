@@ -8,5 +8,6 @@ void free_expression_result(ExpressionResult* res) {
         free(res->strVal);
     }
     if (res->type) free(res->type);
+    if (res->c_code) free(res->c_code);
     free(res);
 }
