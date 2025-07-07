@@ -423,9 +423,6 @@ print_arg:
             }
         }
     }
-    | STRING {
-        print_string($1);
-    }
     ;
 
 assign_stmt:
