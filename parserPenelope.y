@@ -343,6 +343,8 @@ decl:
             printf("%f\n", newData.value.doubleVal);
         } else if (strcmp(newData.type, "bool") == 0) {
             printf("%d\n", newData.value.intVal);
+        } else if (strcmp(newData.type, "string") == 0) {
+            printf("%s\n", newData.value.strVal ? newData.value.strVal : "(null)");
         } else if (strstr(newData.type, "[]") != NULL) {
             printf("array\n");
         } else {
