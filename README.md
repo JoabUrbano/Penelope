@@ -27,9 +27,9 @@ sudo apt install uuid-dev
 
 ---
 
-### Compilação e execução com Makefile
+### Compilação
 
-Agora o projeto conta com um **Makefile** que automatiza o processo de compilação.
+O projeto conta com um **Makefile** que automatiza o processo de compilação.
 
 Para compilar o parser, basta executar:
 
@@ -47,37 +47,96 @@ make clean
 
 ---
 
-### Execução
+## Modos de Execução
 
-Foram preparados três exemplos de código Penelope, abrangendo todos os construtores sintáticos da linguagem.
+O parser da linguagem Penelope possui dois modos principais de operação:
 
-Para analisar o código de um dos exemplos, execute:
+### 1. Análise Semântica e Sintática
+
+Para apenas analisar a sintaxe e semântica de um programa Penelope sem gerar código C:
 
 ```bash
-./penelope_parser tests/codigoPenelope.txt
+./penelope_parser arquivo_penelope.txt
 ```
 
-ou
-
+**Exemplo:**
 ```bash
-./penelope_parser tests/comParenteses.txt
+./penelope_parser tests/CodigosExemplos/codigoPenelope.txt
 ```
 
-ou
+Este modo irá:
+- Verificar a sintaxe do código Penelope
+- Realizar análise semântica (verificação de tipos, declaração de variáveis, etc.)
+- Exibir a tabela de símbolos
+- Reportar erros encontrados
+
+### 2. Geração de Código C
+
+Para gerar código C a partir de um programa Penelope:
 
 ```bash
-./penelope_parser tests/quantidadeVendas.txt
+./penelope_parser -c arquivo_penelope.txt
+```
+
+**Exemplo:**
+```bash
+./penelope_parser -c tests/CodigosExemplos/codigoPenelope.txt
+```
+
+Este modo irá:
+- Realizar análise sintática e semântica
+- Gerar código C equivalente
+- Salvar o código C gerado na pasta `output/` com o mesmo nome do arquivo de entrada, mas com extensão `.c`
+
+#### Especificando arquivo de saída
+
+Você também pode especificar um nome personalizado para o arquivo C gerado:
+
+```bash
+./penelope_parser -c -o output/meu_programa.c arquivo_penelope.txt
 ```
 
 ---
 
-### Testando com outros arquivos
+## Executando o Código C Gerado
 
-Você pode analisar qualquer arquivo de código Penelope usando:
+Após gerar o código C, você pode compilá-lo e executá-lo:
 
+### Passo 1: Compilar o código C gerado
 ```bash
-./penelope_parser seu_arquivo.txt
+gcc -o output/programa output/meu_programa.c
 ```
+
+### Passo 2: Executar o programa
+```bash
+./output/programa
+``` 
+
+## Exemplos de Código Penelope
+
+O repositório inclui vários exemplos de código Penelope em diferentes locais:
+
+### Exemplos principais:
+- `tests/CodigosExemplos/codigoPenelope.txt` - Exemplo com funções e arrays
+- `tests/CodigosExemplos/comParenteses.txt` - Exemplo com expressões parentetizadas
+- `tests/CodigosExemplos/quantidadeVendas.txt` - Exemplo de processamento de dados
+- `simple_example.txt` - Exemplo simples para teste
+
+### Problemas:
+- `tests/Problemas/Problema1.txt`
+- `tests/Problemas/Problema2.txt`
+- `tests/Problemas/Problema3.txt`
+
+## Características da Linguagem Penelope
+
+A linguagem Penelope suporta:
+- Declaração de variáveis com tipagem explícita (`int: x = 5;`)
+- Tipos básicos: `int`, `float`, `bool`, `string`
+- Arrays unidimensionais e multidimensionais
+- Estruturas de controle: `if-else`, `while`, `for`
+- Funções com parâmetros e valores de retorno
+- Operações aritméticas, lógicas e de comparação
+- Comandos de entrada (`read`) e saída (`print`)
 
 ---
 

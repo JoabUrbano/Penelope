@@ -2,14 +2,14 @@
 #define LVALUE_RESULT_H
 
 typedef enum {
-    LVALUE_VAR,           // Simple variable: x
-    LVALUE_ARRAY_ACCESS   // Array access: arr[0]
+    LVALUE_VAR,           // Variável simples: x
+    LVALUE_ARRAY_ACCESS   // Acesso a array: arr[0]
 } LValueType;
 
 typedef struct LValueResult {
     LValueType type;
-    char* varName;        // For variables: the variable name
-    char* elementType;    // For array access: the type of the element (e.g., "int")
+    char* varName;        // Para variáveis: o nome da variável
+    char* elementType;    // Para acesso a array: o tipo do elemento (ex: "int")
 } LValueResult;
 
 LValueResult* create_lvalue_var(char* varName);

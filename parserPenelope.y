@@ -18,13 +18,14 @@ int exec_block = 1;  // Flag de controle para if/else/while gustavo
 HashMap symbolTable = { NULL };
 char *currentScope = NULL;
 int semantic_errors = 0; 
+int syntax_errors = 0;
 int last_condition_result = 0;  // serve pra lembrar o resultado da condição do IF
 
-// Code generation globals
+// Globais para geração de código
 char generated_code[MAX_CODE_SIZE];
 int code_position = 0;
 int indent_level = 0;
-int generate_code = 1;  // Flag to enable/disable code generation
+int generate_code = 1;  // Flag para habilitar/desabilitar geração de código
 int label_counter = 0;  // Para gerar labels únicos
 
 
@@ -68,14 +69,14 @@ void semantic_error(const char* format, ...) {
     semantic_errors++;
 }
 
-// Code generation helper functions
+// Funções auxiliares para geração de código
 void emit_code(const char* format, ...) {
     if (!generate_code) return;
     
     va_list args;
     va_start(args, format);
     
-    // Add the formatted code (sem indentação automática)
+    // Adiciona o código formatado (sem indentação automática)
     int remaining = MAX_CODE_SIZE - code_position - 1;
     if (remaining > 0) {
         int written = vsnprintf(generated_code + code_position, remaining, format, args);
@@ -93,7 +94,7 @@ void emit_line(const char* format, ...) {
     va_list args;
     va_start(args, format);
     
-    // Add the formatted code (sem indentação automática)
+    // Adiciona o código formatado (sem indentação automática)
     int remaining = MAX_CODE_SIZE - code_position - 1;
     if (remaining > 0) {
         int written = vsnprintf(generated_code + code_position, remaining, format, args);
@@ -102,7 +103,7 @@ void emit_line(const char* format, ...) {
         }
     }
     
-    // Add newline
+    // Adiciona quebra de linha
     if (code_position < MAX_CODE_SIZE - 1) {
         generated_code[code_position++] = '\n';
     }
@@ -117,7 +118,7 @@ char* convert_penelope_type_to_c(const char* penelopeType) {
     if (strstr(penelopeType, "int[]")) return "int*";
     if (strstr(penelopeType, "float[]")) return "float*";
     if (strstr(penelopeType, "string[]")) return "char**";
-    return "void"; // fallback
+    return "void"; // fallback padrão
 }
 
 int generate_label() {
@@ -130,7 +131,7 @@ void init_code_generation() {
     label_counter = 0;
     memset(generated_code, 0, MAX_CODE_SIZE);
     
-    // Emit C headers and main function start
+    // Emite cabeçalhos C e início da função main
     emit_line("#include <stdio.h>");
     emit_line("#include <stdlib.h>");
     emit_line("#include <string.h>");
@@ -138,7 +139,7 @@ void init_code_generation() {
 }
 
 void finalize_code_generation() {
-    // Close any open main function if needed
+    // Fecha qualquer função main aberta se necessário
     if (code_position > 0) {
         generated_code[code_position] = '\0';
     }
@@ -176,7 +177,7 @@ double evaluate_number(char *str) {
     return atof(str);
 }
 
-// Function will be defined after struct declarations
+// Função será definida após declarações de struct
 
 void print_string(char *str) {
     // Remove aspas de literais de string
@@ -189,7 +190,8 @@ void print_string(char *str) {
 }
 
 void print_newline() {
-    printf("\n");
+    // Não gera saída em tempo de execução - apenas gera código C
+    // printf("\n");
 }
 
 double power_operation(double base, double exponent) {
@@ -230,7 +232,7 @@ void pop_scope() {
 }
 
 %code {
-    // Generate C code for an expression
+    // Gera código C para uma expressão
     char* expression_to_c_code(ExpressionResult* expr) {
         static char buffer[256];
         
@@ -255,6 +257,8 @@ void pop_scope() {
     }
 
     void print_value(ExpressionResult* expr) {
+        // Não gera saída em tempo de execução durante análise - apenas gera código C
+        /*
         if (!expr) return;
         
         if (strcmp(expr->type, "int") == 0) {
@@ -264,12 +268,12 @@ void pop_scope() {
         } else if (strcmp(expr->type, "bool") == 0) {
             printf("%s ", expr->intVal ? "true" : "false");
         } else if (strcmp(expr->type, "string") == 0) {
-            // Handle string literals - remove quotes if present
+            // Trata literais de string - remove aspas se presentes
             if (expr->strVal && expr->strVal[0] == '"' && expr->strVal[strlen(expr->strVal)-1] == '"') {
-                // Create a temporary string without quotes
+                // Cria uma string temporária sem aspas
                 char* temp = strdup(expr->strVal);
-                temp[strlen(temp)-1] = '\0';  // Remove closing quote
-                printf("%s ", temp + 1);      // Skip opening quote
+                temp[strlen(temp)-1] = '\0';  // Remove aspas finais
+                printf("%s ", temp + 1);      // Pula aspas iniciais
                 free(temp);
             } else {
                 printf("%s ", expr->strVal ? expr->strVal : "");
@@ -277,6 +281,7 @@ void pop_scope() {
         } else {
             printf("unknown ");
         }
+        */
     }
 }
 
@@ -401,7 +406,7 @@ compound_stmt:
 
 while_stmt:
     while_start block {
-        // Generate C code for end of while loop (goto back to condition)
+        // Gera código C para fim do loop while (goto de volta para condição)
         if (generate_code) {
             emit_line("goto L%d;", $1);  // Volta para testar a condição
             emit_line("L%d:", $1 + 1);   // Label de saída do while
@@ -426,7 +431,7 @@ while_start:
             semantic_error("Condição while deve ser do tipo bool, int ou float, mas foi '%s'.", $3->type);
         }
         
-        // Generate C code for while using goto
+        // Gera código C para while usando goto
         int start_label = generate_label();
         int end_label = generate_label();
         
@@ -454,21 +459,21 @@ while_start:
 
 if_stmt:
     if_start block {
-        // Generate C code closing label for if (no else case)
+        // Gera código C para label de fechamento do if (sem else)
         if (generate_code) {
             emit_line("L%d:", $1);  // Label do else/fim
         }
         exec_block = 1;  // reseta após o if
     }
     | if_start block ELSE {
-        // Generate C code for else using goto
+        // Gera código C para else usando goto
         if (generate_code) {
             emit_line("goto L%d;", $1 + 1);  // Pula para o fim do if
             emit_line("L%d:", $1);           // Label do else
         }
         exec_block = !last_condition_result;  // ativa o bloco do else se falso
     } block {
-        // Generate C code closing label for if-else
+        // Gera código C para label de fechamento do if-else
         if (generate_code) {
             emit_line("L%d:", $1 + 1);  // Label de fim
         }
@@ -490,7 +495,7 @@ if_start:
             semantic_error("Condição if deve ser do tipo bool, int ou float, mas foi '%s'.", $3->type);
         }
         
-        // Generate C code for if using goto
+        // Gera código C para if usando goto
         int else_label = generate_label();
         int end_label = generate_label();
         
@@ -536,7 +541,7 @@ decl:
               YYABORT;
           }
 
-        // Generate C code for variable declaration
+        // Gera código C para declaração de variável
         if (generate_code) {
             char* c_type = convert_penelope_type_to_c($1);
             emit_line("%s %s;", c_type, $3);
@@ -582,7 +587,7 @@ decl:
             YYABORT;
         }
 
-        // Generate C code for variable declaration with assignment
+        // Gera código C para declaração de variável com atribuição
         if (generate_code) {
             char* c_type = convert_penelope_type_to_c($1);
             if (strcmp($5->type, "string") == 0) {
@@ -695,7 +700,7 @@ return_stmt:
 print_stmt: 
     PRINT LPAREN print_arg_list RPAREN {
         if (exec_block) print_newline();
-        // Generate C code for newline after print
+        // Gera código C para quebra de linha após print
         if (generate_code) {
             emit_line("printf(\"\\n\");");
         }
@@ -731,7 +736,7 @@ print_arg:
     expression {
         if (exec_block) print_value($1);
         
-        // Generate C code for printing the expression
+        // Gera código C para imprimir a expressão
         if (generate_code) {
             if (strcmp($1->type, "int") == 0) {
                 if ($1->c_code) {
@@ -789,7 +794,7 @@ assign_stmt:
                     YYABORT;
                 }
             }
-            // Generate C code for array assignment
+            // Gera código C para atribuição a array
             if (generate_code) {
                 // For array assignment, we'll generate a comment since we need the actual index expression
                 emit_line("// %s[<index>] = <value>; // Array assignment not fully implemented in code generation", $1->varName);
@@ -802,7 +807,7 @@ assign_stmt:
                 free_expression_result($3);
                 YYABORT;
             } else {
-                // Generate C code for variable assignment
+                // Gera código C para atribuição de variável
                 if (generate_code) {
                     if ($3->c_code) {
                         emit_line("%s = %s;", $1->varName, $3->c_code);
@@ -1003,7 +1008,7 @@ expression:
     | expression ADDITION expression {
         ExpressionResult* res = malloc(sizeof(ExpressionResult));
         
-        // Generate C code for addition
+        // Gera código C para adição
         if ($1->c_code && $3->c_code) {
             res->c_code = malloc(strlen($1->c_code) + strlen($3->c_code) + 10);
             snprintf(res->c_code, strlen($1->c_code) + strlen($3->c_code) + 10, "(%s + %s)", $1->c_code, $3->c_code);
@@ -1104,7 +1109,7 @@ expression:
              YYABORT;
         }
 
-        // Generate C code for comparison
+        // Gera código C para comparação
         if ($1->c_code && $3->c_code) {
             res->c_code = malloc(strlen($1->c_code) + strlen($3->c_code) + 10);
             snprintf(res->c_code, strlen($1->c_code) + strlen($3->c_code) + 10, "(%s < %s)", $1->c_code, $3->c_code);
@@ -1345,7 +1350,7 @@ arg_list:
 void yyerror(const char* s) {
     extern int yylineno;
     fprintf(stderr, "Erro de Sintaxe: erro de sintaxe na linha %d\n", yylineno);
-    semantic_errors++; // Use semantic_errors as syntax error counter too for simplicity
+    syntax_errors++;
 }
 
 int main(int argc, char **argv) {
@@ -1395,13 +1400,13 @@ int main(int argc, char **argv) {
         emit_line("}");
         finalize_code_generation();
         
-        if (parse_result == 0 && semantic_errors == 0) {
+        if (parse_result == 0 && semantic_errors == 0 && syntax_errors == 0) {
             // Determine output file name
             char *c_output_file = output_file;
             char default_output[256];
             
             if (!c_output_file) {
-                // Generate default output file name based on input file
+                // Gera nome padrão do arquivo de saída baseado no arquivo de entrada
                 if (input_file) {
                     char *dot = strrchr(input_file, '.');
                     char *slash = strrchr(input_file, '/');
@@ -1409,35 +1414,69 @@ int main(int argc, char **argv) {
                     
                     if (dot && dot > basename) {
                         int base_len = dot - basename;
-                        snprintf(default_output, sizeof(default_output), "%.*s.c", base_len, basename);
+                        snprintf(default_output, sizeof(default_output), "output/%.*s.c", base_len, basename);
                     } else {
-                        snprintf(default_output, sizeof(default_output), "%s.c", basename);
+                        snprintf(default_output, sizeof(default_output), "output/%s.c", basename);
                     }
                 } else {
-                    strcpy(default_output, "output.c");
+                    strcpy(default_output, "output/output.c");
                 }
                 c_output_file = default_output;
             }
             
-            // Write generated C code to file
+            // Escreve o código C gerado no arquivo
             FILE *output_fp = fopen(c_output_file, "w");
             if (output_fp) {
-                fprintf(output_fp, "// Generated C code from Penelope\n");
+                fprintf(output_fp, "// Código C gerado a partir de Penelope\n");
                 fprintf(output_fp, "%s\n", generated_code);
                 fclose(output_fp);
-                printf("C code generated successfully: %s\n", c_output_file);
+                printf("Código C gerado com sucesso: %s\n", c_output_file);
             } else {
-                fprintf(stderr, "Error: Could not create output file '%s'\n", c_output_file);
+                fprintf(stderr, "Erro: Não foi possível criar o arquivo de saída '%s'\n", c_output_file);
                 return 1;
             }
         } else {
-            fprintf(stderr, "Code generation failed due to %d errors.\n", semantic_errors);
+            printf("Falha na geração de código. Foram encontrados ");
+            
+            int total_errors = semantic_errors + syntax_errors;
+            if (total_errors > 0) {
+                if (semantic_errors > 0 && syntax_errors > 0) {
+                    printf("%d erros semânticos e %d erros de sintaxe.\n", semantic_errors, syntax_errors);
+                } else if (semantic_errors > 0) {
+                    printf("%d erro%s semântico%s.\n", semantic_errors, 
+                           semantic_errors > 1 ? "s" : "", semantic_errors > 1 ? "s" : "");
+                } else if (syntax_errors > 0) {
+                    printf("%d erro%s de sintaxe.\n", syntax_errors, 
+                           syntax_errors > 1 ? "s" : "");
+                } else {
+                    printf("erros desconhecidos.\n");
+                }
+            } else {
+                printf("falha no parser (código de retorno %d).\n", parse_result);
+            }
         }
     } else {
-        if (parse_result == 0 && semantic_errors == 0) {
+        if (parse_result == 0 && semantic_errors == 0 && syntax_errors == 0) {
             printf("Análise concluída com sucesso. A sintaxe e a semântica estão corretas!\n");
         } else {
-            printf("Falha na análise. Foram encontrados %d erros.\n", semantic_errors);
+            printf("Falha na análise. Foram encontrados ");
+            
+            int total_errors = semantic_errors + syntax_errors;
+            if (total_errors > 0) {
+                if (semantic_errors > 0 && syntax_errors > 0) {
+                    printf("%d erros semânticos e %d erros de sintaxe.\n", semantic_errors, syntax_errors);
+                } else if (semantic_errors > 0) {
+                    printf("%d erro%s semântico%s.\n", semantic_errors, 
+                           semantic_errors > 1 ? "s" : "", semantic_errors > 1 ? "s" : "");
+                } else if (syntax_errors > 0) {
+                    printf("%d erro%s de sintaxe.\n", syntax_errors, 
+                           syntax_errors > 1 ? "s" : "");
+                } else {
+                    printf("erros desconhecidos.\n");
+                }
+            } else {
+                printf("falha no parser (código de retorno %d).\n", parse_result);
+            }
         }
         print_map(&symbolTable);
     }
@@ -1447,5 +1486,5 @@ int main(int argc, char **argv) {
 
     free_map(&symbolTable);
 
-    return (parse_result != 0 || semantic_errors > 0) ? 1 : 0;
+    return (parse_result != 0 || semantic_errors > 0 || syntax_errors > 0) ? 1 : 0;
 }
