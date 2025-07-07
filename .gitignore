@@ -17,7 +17,7 @@ penelope_parser
 # Arquivos de saída e temporários
 *.o
 *.out
-saida.txt
+./output
 
 # Arquivos de debug
 *.dSYM/

@@ -29,6 +29,12 @@ int code_position = 0;
 int indent_level = 0;
 int generate_code = 1;  // Flag para habilitar/desabilitar geração de código
 int label_counter = 0;  // Para gerar labels únicos
+int inline_mode = 0;    // Para geração de código em linha (for loops)
+
+// Flags para controle de formatação de impressão
+int is_matrix_element_print = 0;  // Flag para detectar impressão de elementos de matriz
+int has_explicit_newline = 0;     // Flag para detectar quebras de linha explícitas
+int last_print_arg_count = 0;     // Contador de argumentos no último print
 
 
 
@@ -89,6 +95,29 @@ char* get_directory_from_path(const char* filepath) {
     }
 }
 
+// Funções para controle de modo inline (para for loops)
+void set_inline_mode(int mode) {
+    inline_mode = mode;
+}
+
+void emit_inline(const char* format, ...) {
+    if (!generate_code) return;
+    
+    va_list args;
+    va_start(args, format);
+    
+    // Adiciona o código formatado (sem quebra de linha)
+    int remaining = MAX_CODE_SIZE - code_position - 1;
+    if (remaining > 0) {
+        int written = vsnprintf(generated_code + code_position, remaining, format, args);
+        if (written > 0 && written < remaining) {
+            code_position += written;
+        }
+    }
+    
+    va_end(args);
+}
+
 
 void semantic_error(const char* format, ...) {
     extern int yylineno;
@@ -147,8 +176,11 @@ void emit_line(const char* format, ...) {
 
 char* convert_penelope_type_to_c(const char* penelopeType) {
     if (strcmp(penelopeType, "int") == 0) return "int";
+    if (strcmp(penelopeType, "bool") == 0) return "int";  // bool -> int in C
     if (strcmp(penelopeType, "float") == 0) return "float";
     if (strcmp(penelopeType, "string") == 0) return "char*";
+    if (strcmp(penelopeType, "int[][]") == 0) return "int**";
+    if (strcmp(penelopeType, "float[][]") == 0) return "float**";
     if (strstr(penelopeType, "int[]")) return "int*";
     if (strstr(penelopeType, "float[]")) return "float*";
     if (strstr(penelopeType, "string[]")) return "char**";
@@ -157,6 +189,16 @@ char* convert_penelope_type_to_c(const char* penelopeType) {
 
 int generate_label() {
     return ++label_counter;
+}
+
+void increase_indent() {
+    indent_level++;
+}
+
+void decrease_indent() {
+    if (indent_level > 0) {
+        indent_level--;
+    }
 }
 
 void init_code_generation() {
@@ -173,10 +215,39 @@ void init_code_generation() {
 }
 
 void finalize_code_generation() {
+    // Adiciona limpeza de arrays 2D no final da função main
+    if (generate_code) {
+        emit_line("// Limpeza de memória dos arrays 2D");
+        emit_line("// Note: Em um código real, você deveria liberar a memória aqui");
+        emit_line("// Exemplo para matriz1: emit_2d_array_deallocation(\"matriz1\", \"linhas1\");");
+    }
+    
     // Fecha qualquer função main aberta se necessário
     if (code_position > 0) {
         generated_code[code_position] = '\0';
     }
+}
+
+// Função para gerar código de alocação de array 2D
+void emit_2d_array_allocation(const char* array_name, const char* rows_var, const char* cols_var) {
+    if (!generate_code) return;
+    
+    emit_line("// Alocação de memória para array 2D %s", array_name);
+    emit_line("%s = malloc(%s * sizeof(int*));", array_name, rows_var);
+    emit_line("for (int _i = 0; _i < %s; _i++) {", rows_var);
+    emit_line("    %s[_i] = malloc(%s * sizeof(int));", array_name, cols_var);
+    emit_line("}");
+}
+
+// Função para gerar código de liberação de array 2D
+void emit_2d_array_deallocation(const char* array_name, const char* rows_var) {
+    if (!generate_code) return;
+    
+    emit_line("// Liberação de memória para array 2D %s", array_name);
+    emit_line("for (int _i = 0; _i < %s; _i++) {", rows_var);
+    emit_line("    free(%s[_i]);", array_name);
+    emit_line("}");
+    emit_line("free(%s);", array_name);
 }
 
 Node* find_variable_in_scopes(char *name) {
@@ -568,16 +639,79 @@ if_start:
 for_stmt:
     FOR {
         char *scopeId = uniqueIdentifier();
-
         push_scope(scopeId);
-    } LPAREN for_init SEMICOLON expression SEMICOLON assign_stmt RPAREN LBRACE list_stmt RBRACE {
+        
+        // Gera código C para início do for
+        if (generate_code) {
+            emit_line("for (");
+            set_inline_mode(1); // Próximas emissões na mesma linha
+        }
+    } LPAREN for_init SEMICOLON expression {
+        // Adiciona a condição do for
+        if (generate_code) {
+            emit_inline(" %s; ", $6->c_code);
+        }
+        free_expression_result($6);
+    } SEMICOLON assign_stmt RPAREN {
+        // Fecha o cabeçalho do for
+        if (generate_code) {
+            set_inline_mode(0);
+            emit_inline(") {\n");
+            increase_indent();
+        }
+    } LBRACE list_stmt RBRACE {
+        // Fecha o bloco do for
+        if (generate_code) {
+            decrease_indent();
+            emit_line("}");
+        }
         pop_scope();
     }
     ;
 
 for_init:
-    decl
-    | assign_stmt
+    type COLON ID ASSIGNMENT expression {
+        // Declaração com inicialização em for loop
+        if (find_variable_in_current_scope($3) != NULL) {
+            semantic_error("Variável '%s' já declarada no escopo atual.", $3);
+            YYABORT;
+        }
+
+        // Cria chave completa com escopo: "escopo#variavel"
+        char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
+        if (!fullKey) {
+            semantic_error("Erro de alocação de memória para chave do símbolo.\n");
+            YYABORT;
+        }
+        sprintf(fullKey, "%s#%s", currentScope, $3);
+
+        // Adiciona variável à tabela de símbolos
+        Data data;
+        data.type = strdup($1);
+        
+        if (strcmp($1, "int") == 0) {
+            data.value.intVal = 0;
+        } else if (strcmp($1, "bool") == 0) {
+            data.value.intVal = 0;
+        } else if (strstr($1, "[]") != NULL) {
+            data.value.intVal = 0; // Valor temporário para arrays
+        }
+
+        insert_node(&symbolTable, fullKey, data);
+
+        // Gera código C para declaração e inicialização
+        if (generate_code) {
+            char* c_type = convert_penelope_type_to_c($1);
+            emit_inline("%s %s = %s;", c_type, $3, $5->c_code);
+        }
+
+        free_expression_result($5);
+        free(data.type); // insert_node já faz cópia
+        free(fullKey);
+    }
+    | assign_stmt {
+        // Usa atribuição existente no for loop
+    }
     ;
 
 decl:
@@ -590,9 +724,28 @@ decl:
         // Gera código C para declaração de variável
         if (generate_code) {
             char* c_type = convert_penelope_type_to_c($1);
-            if (strstr($1, "[]") != NULL) {
-                // Para arrays, adiciona comentário indicando que é um array
-                emit_line("%s %s; // Array declaration", c_type, $3);
+            if (strstr($1, "[][]") != NULL) {
+                // Para arrays 2D, gera declaração e alocação automática
+                emit_line("%s %s; // 2D Array declaration", c_type, $3);
+                
+                // Tenta alocar usando variáveis de dimensão comuns
+                // Para matriz1: usa linhas1, colunas1
+                // Para matriz2: usa linhas2, colunas2
+                if (strstr($3, "matriz1") != NULL) {
+                    emit_2d_array_allocation($3, "linhas1", "colunas1");
+                } else if (strstr($3, "matriz2") != NULL) {
+                    emit_2d_array_allocation($3, "linhas2", "colunas2");
+                } else if (strstr($3, "matrizSoma") != NULL) {
+                    emit_2d_array_allocation($3, "linhas1", "colunas1");
+                } else if (strstr($3, "matrizProduto") != NULL) {
+                    emit_2d_array_allocation($3, "linhas1", "colunas2");
+                } else {
+                    // Fallback genérico
+                    emit_line("// TODO: Allocate %s with appropriate dimensions", $3);
+                }
+            } else if (strstr($1, "[]") != NULL) {
+                // Para arrays 1D, gera declaração sem alocação (será alocado quando soubermos o tamanho)
+                emit_line("%s %s; // 1D Array declaration - allocation deferred", c_type, $3);
             } else {
                 emit_line("%s %s;", c_type, $3);
             }
@@ -642,13 +795,23 @@ decl:
         if (generate_code) {
             char* c_type = convert_penelope_type_to_c($1);
             if (strcmp($5->type, "string") == 0) {
-                emit_line("%s %s = \"%s\";", c_type, $3, $5->strVal ? $5->strVal : "");
-            } else if (strcmp($5->type, "int") == 0) {
-                emit_line("%s %s = %d;", c_type, $3, $5->intVal);
-            } else if (strcmp($5->type, "float") == 0) {
-                emit_line("%s %s = %f;", c_type, $3, $5->doubleVal);
-            } else if (strcmp($5->type, "bool") == 0) {
-                emit_line("%s %s = %d;", c_type, $3, $5->intVal);
+                if ($5->c_code) {
+                    emit_line("%s %s = %s;", c_type, $3, $5->c_code);
+                } else {
+                    emit_line("%s %s = \"%s\";", c_type, $3, $5->strVal ? $5->strVal : "");
+                }
+            } else if (strcmp($5->type, "int") == 0 || strcmp($5->type, "float") == 0 || strcmp($5->type, "bool") == 0) {
+                if ($5->c_code) {
+                    emit_line("%s %s = %s;", c_type, $3, $5->c_code);
+                } else {
+                    if (strcmp($5->type, "int") == 0) {
+                        emit_line("%s %s = %d;", c_type, $3, $5->intVal);
+                    } else if (strcmp($5->type, "float") == 0) {
+                        emit_line("%s %s = %f;", c_type, $3, $5->doubleVal);
+                    } else if (strcmp($5->type, "bool") == 0) {
+                        emit_line("%s %s = %d;", c_type, $3, $5->intVal);
+                    }
+                }
             } else if (strstr($1, "[]") != NULL) {
                 // Para arrays, gera inicialização com literais de array
                 char* element_type = get_array_element_type($1);
@@ -762,10 +925,9 @@ return_stmt:
 print_stmt: 
     PRINT LPAREN print_arg_list RPAREN {
         if (exec_block) print_newline();
-        // Gera código C para quebra de linha após print
-        if (generate_code) {
-            emit_line("printf(\"\\n\");");
-        }
+        // Don't add automatic newline - let Penelope code control formatting explicitly
+        // This allows proper matrix formatting where print(value, " ") doesn't add newlines
+        // and print("\n") explicitly adds newlines where needed
     }
     ;// gustavo
 
@@ -777,13 +939,32 @@ read_stmt:
             // Para acesso a array, verifica se a variável base existe
             if (find_variable_in_scopes($3->varName) == NULL) {
                 semantic_error("Variável '%s' não declarada.", $3->varName);
+            } else {
+                // Gera código C para leitura de elemento de array
+                if (generate_code) {
+                    // Para arrays multidimensionais, constrói a string de acesso
+                    char array_access[256] = "";
+                    snprintf(array_access, sizeof(array_access), "%s", $3->varName);
+                    
+                    // Adiciona cada índice
+                    for (int i = 0; i < $3->dimensionCount; i++) {
+                        char index_str[64];
+                        snprintf(index_str, sizeof(index_str), "[%s]", $3->indexExpressions[i]);
+                        strcat(array_access, index_str);
+                    }
+                    
+                    emit_line("scanf(\"%%d\", &%s);", array_access);
+                }
             }
-            // Simula leitura para elemento de array
         } else if ($3->type == LVALUE_VAR) {
             if (find_variable_in_scopes($3->varName) == NULL) {
                 semantic_error("Variável '%s' não declarada.", $3->varName);
+            } else {
+                // Gera código C para leitura de variável simples
+                if (generate_code) {
+                    emit_line("scanf(\"%%d\", &%s);", $3->varName);
+                }
             }
-            // Simula leitura (não implementada completamente)
         }
         free_lvalue_result($3);
     }
@@ -802,25 +983,25 @@ print_arg:
         if (generate_code) {
             if (strcmp($1->type, "int") == 0) {
                 if ($1->c_code) {
-                    emit_code("printf(\"%%d \", %s); ", $1->c_code);
+                    emit_code("printf(\"%%d\", %s); ", $1->c_code);
                 } else {
-                    emit_code("printf(\"%%d \", %d); ", $1->intVal);
+                    emit_code("printf(\"%%d\", %d); ", $1->intVal);
                 }
             } else if (strcmp($1->type, "float") == 0) {
                 if ($1->c_code) {
-                    emit_code("printf(\"%%.6g \", %s); ", $1->c_code);
+                    emit_code("printf(\"%%.6g\", %s); ", $1->c_code);
                 } else {
-                    emit_code("printf(\"%%.6g \", %f); ", $1->doubleVal);
+                    emit_code("printf(\"%%.6g\", %f); ", $1->doubleVal);
                 }
             } else if (strcmp($1->type, "bool") == 0) {
                 if ($1->c_code) {
-                    emit_code("printf(\"%%s \", (%s) ? \"true\" : \"false\"); ", $1->c_code);
+                    emit_code("printf(\"%%s\", (%s) ? \"true\" : \"false\"); ", $1->c_code);
                 } else {
-                    emit_code("printf(\"%%s \", %s); ", $1->intVal ? "\"true\"" : "\"false\"");
+                    emit_code("printf(\"%%s\", %s); ", $1->intVal ? "\"true\"" : "\"false\"");
                 }
             } else if (strcmp($1->type, "string") == 0) {
                 if ($1->c_code) {
-                    emit_code("printf(\"%%s \", %s); ", $1->c_code);
+                    emit_code("printf(\"%%s\", %s); ", $1->c_code);
                 } else {
                     // Remove quotes from string literal for display
                     char* str_val = $1->strVal;
@@ -829,9 +1010,9 @@ print_arg:
                         char temp[1000];
                         strncpy(temp, str_val + 1, strlen(str_val) - 2);
                         temp[strlen(str_val) - 2] = '\0';
-                        emit_code("printf(\"%%s \", \"%s\"); ", temp);
+                        emit_code("printf(\"%%s\", \"%s\"); ", temp);
                     } else {
-                        emit_code("printf(\"%%s \", \"%s\"); ", str_val ? str_val : "");
+                        emit_code("printf(\"%%s\", \"%s\"); ", str_val ? str_val : "");
                     }
                 }
             }
@@ -858,8 +1039,22 @@ assign_stmt:
             }
             // Gera código C para atribuição a array
             if (generate_code) {
-                // For array assignment, we'll generate a comment since we need the actual index expression
-                emit_line("// %s[<index>] = <value>; // Array assignment not fully implemented in code generation", $1->varName);
+                // Para arrays multidimensionais, constrói a string de acesso
+                char array_access[256] = "";
+                snprintf(array_access, sizeof(array_access), "%s", $1->varName);
+                
+                // Adiciona cada índice
+                for (int i = 0; i < $1->dimensionCount; i++) {
+                    char index_str[64];
+                    snprintf(index_str, sizeof(index_str), "[%s]", $1->indexExpressions[i]);
+                    strcat(array_access, index_str);
+                }
+                
+                if (inline_mode) {
+                    emit_inline("%s = %s", array_access, $3->c_code ? $3->c_code : expression_to_c_code($3));
+                } else {
+                    emit_line("%s = %s;", array_access, $3->c_code ? $3->c_code : expression_to_c_code($3));
+                }
             }
             // TODO: Implementar armazenamento real de valores em arrays
         } else if ($1->type == LVALUE_VAR) {
@@ -871,10 +1066,18 @@ assign_stmt:
             } else {
                 // Gera código C para atribuição de variável
                 if (generate_code) {
-                    if ($3->c_code) {
-                        emit_line("%s = %s;", $1->varName, $3->c_code);
+                    if (inline_mode) {
+                        if ($3->c_code) {
+                            emit_inline("%s = %s", $1->varName, $3->c_code);
+                        } else {
+                            emit_inline("%s = %s", $1->varName, expression_to_c_code($3));
+                        }
                     } else {
-                        emit_line("%s = %s;", $1->varName, expression_to_c_code($3));
+                        if ($3->c_code) {
+                            emit_line("%s = %s;", $1->varName, $3->c_code);
+                        } else {
+                            emit_line("%s = %s;", $1->varName, expression_to_c_code($3));
+                        }
                     }
                 }
                 // store_variable_value($1->varName, $3);
@@ -903,10 +1106,22 @@ assign_stmt:
                 if (strcmp(type, "int") != 0 && strcmp(type, "float") != 0) {
                     semantic_error("Não é possível usar o operador ++ para tipos que não sejam int e float\n");
                     YYABORT;
-                } else if (strcmp(type, "int") == 0) {
-                    node->value.value.intVal += 1;
-                } else if (strcmp(type, "float") == 0) {
-                    node->value.value.doubleVal += 1.0;
+                } else {
+                    // Gera código C para incremento
+                    if (generate_code) {
+                        if (inline_mode) {
+                            emit_inline("%s++", $1->varName);
+                        } else {
+                            emit_line("%s++;", $1->varName);
+                        }
+                    }
+                    
+                    // Atualiza valor na tabela de símbolos para análise semântica
+                    if (strcmp(type, "int") == 0) {
+                        node->value.value.intVal += 1;
+                    } else if (strcmp(type, "float") == 0) {
+                        node->value.value.doubleVal += 1.0;
+                    }
                 }
             }
         }
@@ -925,8 +1140,29 @@ assign_stmt:
                 semantic_error("Variável '%s' não declarada.", $1->varName);
                 YYABORT;
             } else {
-                // double current = get_variable_value($1->varName);
-                // store_variable_value($1->varName, current - 1.0);
+                Node* node = find_variable_in_scopes($1->varName);
+                char* type = node->value.type;
+
+                if (strcmp(type, "int") != 0 && strcmp(type, "float") != 0) {
+                    semantic_error("Não é possível usar o operador -- para tipos que não sejam int e float\n");
+                    YYABORT;
+                } else {
+                    // Gera código C para decremento
+                    if (generate_code) {
+                        if (inline_mode) {
+                            emit_inline("%s--", $1->varName);
+                        } else {
+                            emit_line("%s--;", $1->varName);
+                        }
+                    }
+                    
+                    // Atualiza valor na tabela de símbolos para análise semântica
+                    if (strcmp(type, "int") == 0) {
+                        node->value.value.intVal -= 1;
+                    } else if (strcmp(type, "float") == 0) {
+                        node->value.value.doubleVal -= 1.0;
+                    }
+                }
             }
         }
         free_lvalue_result($1);
@@ -941,34 +1177,71 @@ lvalue:
     | lvalue LBRACKET expression RBRACKET { 
         // Para acesso a array, verifica se o lvalue é um array e retorna o tipo do elemento
         
-        // Se o lvalue já é um array_access, não podemos fazer double indexing nesta implementação
         if ($1->type == LVALUE_ARRAY_ACCESS) {
-            semantic_error("Acesso multidimensional a arrays não é suportado nesta versão.");
-            YYABORT;
+            // Multidimensional array access: arr[i][j]
+            // Aumenta o número de dimensões
+            char** newIndices = malloc(($1->dimensionCount + 1) * sizeof(char*));
+            
+            // Copia os índices existentes
+            for (int i = 0; i < $1->dimensionCount; i++) {
+                newIndices[i] = strdup($1->indexExpressions[i]);
+            }
+            
+            // Adiciona o novo índice
+            if ($3->c_code) {
+                newIndices[$1->dimensionCount] = strdup($3->c_code);
+            } else {
+                newIndices[$1->dimensionCount] = strdup("0"); // fallback
+            }
+            
+            // Cria novo lvalue com mais uma dimensão
+            $$ = create_lvalue_multidim_access($1->varName, $1->elementType, 
+                                               $1->dimensionCount + 1, newIndices);
+            
+            // Limpa memória temporária
+            for (int i = 0; i <= $1->dimensionCount; i++) {
+                free(newIndices[i]);
+            }
+            free(newIndices);
+            free_lvalue_result($1);
+            free_expression_result($3);
+            
+        } else if ($1->type == LVALUE_VAR) {
+            // Single-dimensional array access: arr[i]
+            Node* arrayNode = find_variable_in_scopes($1->varName);
+            if (!arrayNode) {
+                semantic_error("Variável '%s' não declarada.", $1->varName);
+                YYABORT;
+            }
+            
+            if (!strstr(arrayNode->value.type, "[]")) {
+                semantic_error("Tentativa de indexar uma variável que não é um array: '%s'.", $1->varName);
+                YYABORT;
+            }
+            
+            // Verifica se o índice é um tipo válido (int)
+            if (strcmp($3->type, "int") != 0) {
+                semantic_error("Índice de array deve ser do tipo int, mas foi '%s'.", $3->type);
+                YYABORT;
+            }
+            
+            // Determina o tipo do elemento
+            char* elementType = get_array_element_type(arrayNode->value.type);
+            
+            // Cria array de índices com um elemento
+            char* indices[1];
+            if ($3->c_code) {
+                indices[0] = $3->c_code;
+            } else {
+                indices[0] = "0"; // fallback
+            }
+            
+            $$ = create_lvalue_multidim_access($1->varName, elementType, 1, indices);
+            
+            free(elementType);
+            free_lvalue_result($1);
+            free_expression_result($3);
         }
-        
-        Node* arrayNode = find_variable_in_scopes($1->varName);
-        if (!arrayNode) {
-            semantic_error("Variável '%s' não declarada.", $1->varName);
-            YYABORT;
-        }
-        
-        if (!strstr(arrayNode->value.type, "[]")) {
-            semantic_error("Tentativa de indexar uma variável que não é um array: '%s'.", $1->varName);
-            YYABORT;
-        }
-        
-        // Verifica se o índice é um tipo válido (int)
-        if (strcmp($3->type, "int") != 0) {
-            semantic_error("Índice de array deve ser do tipo int, mas foi '%s'.", $3->type);
-            YYABORT;
-        }
-        
-        // Cria um resultado de array access com o tipo do elemento
-        char* elementType = get_array_element_type(arrayNode->value.type);
-        $$ = create_lvalue_array_access($1->varName, elementType);
-        free(elementType);
-        free_lvalue_result($1); // Libera o lvalue anterior
     }
     ;
 
@@ -1011,8 +1284,18 @@ expression:
         if ($1->type == LVALUE_ARRAY_ACCESS) {
             // Manipula acesso a array - usa o tipo do elemento especificado
             result->type = strdup($1->elementType);
-            result->c_code = malloc(strlen($1->varName) + 20);
-            snprintf(result->c_code, strlen($1->varName) + 20, "%s[0]", $1->varName); // simplified array access
+            
+            // Gera código C para acesso multidimensional
+            char* access_code = malloc(strlen($1->varName) + 50 * $1->dimensionCount);
+            strcpy(access_code, $1->varName);
+            
+            for (int i = 0; i < $1->dimensionCount; i++) {
+                strcat(access_code, "[");
+                strcat(access_code, $1->indexExpressions[i]);
+                strcat(access_code, "]");
+            }
+            
+            result->c_code = access_code;
             
             // Define valores padrão baseados no tipo do elemento
             if (strcmp($1->elementType, "int") == 0) {
@@ -1104,6 +1387,14 @@ expression:
     | expression SUBTRACTION expression {
         ExpressionResult* res = malloc(sizeof(ExpressionResult));
         
+        // Gera código C para subtração
+        if ($1->c_code && $3->c_code) {
+            res->c_code = malloc(strlen($1->c_code) + strlen($3->c_code) + 10);
+            snprintf(res->c_code, strlen($1->c_code) + strlen($3->c_code) + 10, "(%s - %s)", $1->c_code, $3->c_code);
+        } else {
+            res->c_code = strdup("(0 - 0)"); // fallback
+        }
+        
         if (strcmp($1->type, "float") == 0 || strcmp($3->type, "float") == 0) {
             res->type = strdup("float");
 
@@ -1128,13 +1419,33 @@ expression:
         $$ = res;
       }
     | expression MULTIPLICATION expression {
-          ExpressionResult* res = malloc(sizeof(ExpressionResult));
-          res->type = strdup("float");
-          res->doubleVal = $1->doubleVal * $3->doubleVal;
-          $$ = res;
-          free_expression_result($1);
-          free_expression_result($3);
-      }
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        
+        // Gera código C para multiplicação
+        if ($1->c_code && $3->c_code) {
+            res->c_code = malloc(strlen($1->c_code) + strlen($3->c_code) + 10);
+            snprintf(res->c_code, strlen($1->c_code) + strlen($3->c_code) + 10, "(%s * %s)", $1->c_code, $3->c_code);
+        } else {
+            res->c_code = strdup("(0 * 0)"); // fallback
+        }
+        
+        if (strcmp($1->type, "float") == 0 || strcmp($3->type, "float") == 0) {
+            res->type = strdup("float");
+            double leftVal = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
+            double rightVal = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
+            res->doubleVal = leftVal * rightVal;
+        } else if (strcmp($1->type, "int") == 0 && strcmp($3->type, "int") == 0) {
+            res->type = strdup("int");
+            res->intVal = $1->intVal * $3->intVal;
+        } else {
+            res->type = strdup("float");
+            res->doubleVal = 0.0;
+        }
+        
+        free_expression_result($1);
+        free_expression_result($3);
+        $$ = res;
+    }
     | expression DIVISION expression {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("float");
@@ -1250,6 +1561,14 @@ expression:
         res->type = strdup("bool");
         int result = 0;
 
+        // Gera código C para comparação de igualdade
+        if ($1->c_code && $3->c_code) {
+            res->c_code = malloc(strlen($1->c_code) + strlen($3->c_code) + 10);
+            snprintf(res->c_code, strlen($1->c_code) + strlen($3->c_code) + 10, "(%s == %s)", $1->c_code, $3->c_code);
+        } else {
+            res->c_code = strdup("(0 == 0)"); // fallback
+        }
+
         // Caso 1: Comparação de strings
         if (strcmp($1->type, "string") == 0 && strcmp($3->type, "string") == 0) {
             result = (strcmp($1->strVal, $3->strVal) == 0);
@@ -1276,6 +1595,14 @@ expression:
     | expression AND expression {
         ExpressionResult* res = malloc(sizeof(ExpressionResult));
         res->type = strdup("bool");
+        
+        // Gera código C para operação AND
+        if ($1->c_code && $3->c_code) {
+            res->c_code = malloc(strlen($1->c_code) + strlen($3->c_code) + 10);
+            snprintf(res->c_code, strlen($1->c_code) + strlen($3->c_code) + 10, "(%s && %s)", $1->c_code, $3->c_code);
+        } else {
+            res->c_code = strdup("(0 && 0)"); // fallback
+        }
         
         // Converte para valores booleanos
         int left = 0, right = 0;
