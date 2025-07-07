@@ -9,6 +9,7 @@ int scopeTop = -1;
 HashMap symbolTable = { NULL };
 char *currentScope = NULL;
 
+// Função para verificar compatibilidade entre tipos
 int are_types_compatible(const char* declaredType, const char* exprType) {
     if (strcmp(declaredType, exprType) == 0) return 1;
     if ((strcmp(declaredType, "float") == 0 && strcmp(exprType, "int") == 0) ||

@@ -27,6 +27,7 @@ char* expression_to_c_code(ExpressionResult* expr) {
     return buffer;
 }
 
+// Função para imprimir valores durante análise semântica (comentada para geração de código C)
 void print_value(ExpressionResult* expr) {
     // Não gera saída em tempo de execução durante análise - apenas gera código C
     /*
@@ -55,6 +56,7 @@ void print_value(ExpressionResult* expr) {
     */
 }
 
+// Função para avaliar números a partir de strings
 double evaluate_number(char *str) {
     return atof(str);
 }

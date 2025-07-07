@@ -1,7 +1,7 @@
 #ifndef SYMBOL_TABLE_H
 #define SYMBOL_TABLE_H
 
-#include "../utils/hashMap/hashMap.h"
+#include "../../utils/hashMap/hashMap.h"
 
 // Estruturas para gerenciamento de escopo
 #define MAX_SCOPE_DEPTH 100

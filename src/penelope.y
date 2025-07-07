@@ -1,5 +1,5 @@
 %{
-#include "parser/parser_common.h"
+#include "../src/parser/parserCommon/parser_common.h"
 
 // Forward declarations for Bison
 extern int yylineno;
@@ -13,8 +13,8 @@ extern void yyerror(const char* s);
 
 /* Inclua o header aqui, *fora* do bloco %{...%}, para que o Bison leia a definição do tipo ANTES do %union */
 %code requires {
-    #include "./structs/expression/expressionResult.h"
-    #include "./structs/lvalue/lvalueResult.h"
+    #include "../src/structs/expression/expressionResult.h"
+    #include "../src/structs/lvalue/lvalueResult.h"
 }
 
 %union {
@@ -383,7 +383,7 @@ decl:
                     emit_2d_array_allocation($3, "linhas1", "colunas2");
                 } else {
                     // Fallback genérico
-                    emit_line("// TODO: Allocate %s with appropriate dimensions", $3);
+                    emit_line("// PENDENTE: Alocar %s com dimensões apropriadas", $3);
                 }
             } else if (strstr($1, "[]") != NULL) {
                 // Para arrays 1D, gera declaração sem alocação (será alocado quando soubermos o tamanho)
@@ -459,10 +459,10 @@ decl:
                 char* element_type = get_array_element_type($1);
                 if (element_type && strstr($5->type, "[]") != NULL) {
                     // Array literal assignment - generate static array
-                    emit_line("%s %s[] = {15, 32, 77, 100, 49, 3, -1}; // TODO: Extract actual values", element_type, $3);
+                    emit_line("%s %s[] = {15, 32, 77, 100, 49, 3, -1}; // PENDENTE: Extrair valores reais", element_type, $3);
                 } else {
                     emit_line("%s %s;", c_type, $3);
-                    emit_line("// TODO: Array initialization for %s", $3);
+                    emit_line("// PENDENTE: Inicialização de array para %s", $3);
                 }
                 if (element_type) free(element_type);
             }
@@ -698,7 +698,7 @@ assign_stmt:
                     emit_line("%s = %s;", array_access, $3->c_code ? $3->c_code : expression_to_c_code($3));
                 }
             }
-            // TODO: Implementar armazenamento real de valores em arrays
+            // PENDENTE: Implementar armazenamento real de valores em arrays
         } else if ($1->type == LVALUE_VAR) {
             if (find_variable_in_scopes($1->varName) == NULL) {
                 semantic_error("Variável '%s' não declarada.", $1->varName);
@@ -735,7 +735,7 @@ assign_stmt:
                 semantic_error("Não é possível usar o operador ++ para elementos de array do tipo '%s'.", $1->elementType);
                 YYABORT;
             }
-            // TODO: Implementar incremento real em elementos de array
+            // PENDENTE: Implementar incremento real em elementos de array
         } else if ($1->type == LVALUE_VAR) {
             Data* node = find_variable_in_scopes($1->varName);
 
@@ -776,7 +776,6 @@ assign_stmt:
                 semantic_error("Não é possível usar o operador -- para elementos de array do tipo '%s'.", $1->elementType);
                 YYABORT;
             }
-            // TODO: Implementar decremento real em elementos de array
         } else if ($1->type == LVALUE_VAR) {
              if (find_variable_in_scopes($1->varName) == NULL) {
                 semantic_error("Variável '%s' não declarada.", $1->varName);
@@ -1418,150 +1417,4 @@ void yyerror(const char* s) {
     extern int yylineno;
     fprintf(stderr, "Erro de Sintaxe: erro de sintaxe na linha %d\n", yylineno);
     syntax_errors++;
-}
-
-int main(int argc, char **argv) {
-    int output_c_code = 0;
-    char *input_file = NULL;
-    char *output_file = NULL;
-    
-    // Parse command line arguments
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--generate-c") == 0 || strcmp(argv[i], "-c") == 0) {
-            output_c_code = 1;
-        } else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
-            output_file = argv[i + 1];
-            output_c_code = 1;  // Automatically enable code generation when output file is specified
-            i++; // Skip next argument since it's the output file name
-        } else if (argv[i][0] != '-') {
-            input_file = argv[i];
-        }
-    }
-    
-    if (input_file) {
-        FILE *file = fopen(input_file, "r");
-        if (!file) {
-            perror(input_file);
-            return 1;
-        }
-        yyin = file;
-    } else {
-        yyin = stdin;
-    }
-
-    // Initialize code generation
-    if (output_c_code) {
-        generate_code = 1;
-        init_code_generation();
-        emit_line("int main() {");
-    } else {
-        generate_code = 0;
-    }
-
-    push_scope(strdup("global"));
-
-    int parse_result = yyparse();
-    
-    if (output_c_code) {
-        // Finalize C code generation
-        emit_line("return 0;");
-        emit_line("}");
-        finalize_code_generation();
-        
-        if (parse_result == 0 && semantic_errors == 0 && syntax_errors == 0) {
-            // Determine output file name
-            char *c_output_file = output_file;
-            char default_output[256];
-            
-            if (!c_output_file) {
-                // Gera nome padrão do arquivo de saída baseado no arquivo de entrada
-                if (input_file) {
-                    char *dot = strrchr(input_file, '.');
-                    char *slash = strrchr(input_file, '/');
-                    char *basename = slash ? slash + 1 : input_file;
-                    
-                    if (dot && dot > basename) {
-                        int base_len = dot - basename;
-                        snprintf(default_output, sizeof(default_output), "output/%.*s.c", base_len, basename);
-                    } else {
-                        snprintf(default_output, sizeof(default_output), "output/%s.c", basename);
-                    }
-                } else {
-                    strcpy(default_output, "output/output.c");
-                }
-                c_output_file = default_output;
-            }
-            
-            // Escreve o código C gerado no arquivo
-            // Primeiro, cria o diretório se necessário
-            char* output_dir = get_directory_from_path(c_output_file);
-            if (output_dir && !create_directory_if_not_exists(output_dir)) {
-                fprintf(stderr, "Erro: Não foi possível criar o diretório '%s'\n", output_dir);
-                free(output_dir);
-                return 1;
-            }
-            if (output_dir) free(output_dir);
-            
-            FILE *output_fp = fopen(c_output_file, "w");
-            if (output_fp) {
-                fprintf(output_fp, "// Código C gerado a partir de Penelope\n");
-                fprintf(output_fp, "%s\n", generated_code);
-                fclose(output_fp);
-                printf("Código C gerado com sucesso: %s\n", c_output_file);
-            } else {
-                fprintf(stderr, "Erro: Não foi possível criar o arquivo de saída '%s'\n", c_output_file);
-                return 1;
-            }
-        } else {
-            printf("Falha na geração de código. Foram encontrados ");
-            
-            int total_errors = semantic_errors + syntax_errors;
-            if (total_errors > 0) {
-                if (semantic_errors > 0 && syntax_errors > 0) {
-                    printf("%d erros semânticos e %d erros de sintaxe.\n", semantic_errors, syntax_errors);
-                } else if (semantic_errors > 0) {
-                    printf("%d erro%s semântico%s.\n", semantic_errors, 
-                           semantic_errors > 1 ? "s" : "", semantic_errors > 1 ? "s" : "");
-                } else if (syntax_errors > 0) {
-                    printf("%d erro%s de sintaxe.\n", syntax_errors, 
-                           syntax_errors > 1 ? "s" : "");
-                } else {
-                    printf("erros desconhecidos.\n");
-                }
-            } else {
-                printf("falha no parser (código de retorno %d).\n", parse_result);
-            }
-        }
-    } else {
-        if (parse_result == 0 && semantic_errors == 0 && syntax_errors == 0) {
-            printf("Análise concluída com sucesso. A sintaxe e a semântica estão corretas!\n");
-        } else {
-            printf("Falha na análise. Foram encontrados ");
-            
-            int total_errors = semantic_errors + syntax_errors;
-            if (total_errors > 0) {
-                if (semantic_errors > 0 && syntax_errors > 0) {
-                    printf("%d erros semânticos e %d erros de sintaxe.\n", semantic_errors, syntax_errors);
-                } else if (semantic_errors > 0) {
-                    printf("%d erro%s semântico%s.\n", semantic_errors, 
-                           semantic_errors > 1 ? "s" : "", semantic_errors > 1 ? "s" : "");
-                } else if (syntax_errors > 0) {
-                    printf("%d erro%s de sintaxe.\n", syntax_errors, 
-                           syntax_errors > 1 ? "s" : "");
-                } else {
-                    printf("erros desconhecidos.\n");
-                }
-            } else {
-                printf("falha no parser (código de retorno %d).\n", parse_result);
-            }
-        }
-        print_map(&symbolTable);
-    }
-    
-    // Libera o escopo global
-    pop_scope(); 
-
-    free_map(&symbolTable);
-
-    return (parse_result != 0 || semantic_errors > 0 || syntax_errors > 0) ? 1 : 0;
 }

@@ -14,6 +14,7 @@ int label_counter = 0;
 int inline_mode = 0;
 int current_loop_exit_label = -1;
 
+// Função para emitir código C sem quebra de linha automática
 void emit_code(const char* format, ...) {
     if (!generate_code) return;
     
@@ -31,6 +32,7 @@ void emit_code(const char* format, ...) {
     va_end(args);
 }
 
+// Função para emitir código C com quebra de linha automática
 void emit_line(const char* format, ...) {
     if (!generate_code) return;
     

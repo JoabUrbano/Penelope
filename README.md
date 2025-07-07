@@ -13,7 +13,7 @@ sudo apt update
 sudo apt install flex
 ```
 
-Para o analisador sintático, você também precisará do Bison:
+Para compilar o parser, você também precisará do Bison:
 
 ```bash
 sudo apt install bison
@@ -22,7 +22,7 @@ sudo apt install bison
 Além disso, para suportar a geração de identificadores únicos via UUID, é necessário instalar a biblioteca de desenvolvimento do UUID:
 
 ```bash
-sudo apt install uuid-dev
+sudo apt install libuuid1 uuid-dev
 ```
 
 ---
@@ -37,7 +37,12 @@ Para compilar o parser, basta executar:
 make
 ```
 
-Isso irá compilar o analisador léxico e sintático, além das dependências, e gerar o executável `penelope_parser`.
+Este comando irá:
+1. Criar automaticamente o diretório `build/` (se não existir)
+2. Gerar o analisador léxico (`lex.yy.c`) a partir de `src/lexer/penelope.l` usando o Flex
+3. Gerar o analisador sintático (`parser.tab.c` e `parser.tab.h`) a partir de `src/penelope.y` usando o Bison
+4. Compilar todos os módulos do projeto
+5. Criar o executável `penelope_parser` no diretório raiz
 
 Para limpar os arquivos gerados, use:
 
@@ -45,7 +50,17 @@ Para limpar os arquivos gerados, use:
 make clean
 ```
 
+**Nota:** O diretório `build/` contém apenas arquivos gerados automaticamente e não está incluído no repositório Git. Ele será criado automaticamente durante a compilação.
+
 ---
+
+## Uso
+
+Para ver todas as opções disponíveis:
+
+```bash
+./penelope_parser --help
+```
 
 ## Modos de Execução
 
@@ -77,6 +92,10 @@ Para gerar código C a partir de um programa Penelope:
 ```bash
 ./penelope_parser -c arquivo_penelope.txt
 ```
+ou
+```bash
+./penelope_parser --generate-c arquivo_penelope.txt
+```
 
 **Exemplo:**
 ```bash
@@ -93,10 +112,20 @@ Este modo irá:
 Você também pode especificar um nome personalizado para o arquivo C gerado:
 
 ```bash
-./penelope_parser -c -o output/meu_programa.c arquivo_penelope.txt
+./penelope_parser -o output/meu_programa.c arquivo_penelope.txt
 ```
 
----
+### Opções de Linha de Comando
+
+- `-c, --generate-c`: Gera código C a partir do código Penelope
+- `-o ARQUIVO`: Especifica o arquivo de saída (automaticamente habilita geração de código C)
+- `-h, --help`: Mostra a mensagem de ajuda com todas as opções
+
+### Observações sobre Uso
+
+- Se nenhum arquivo for especificado, o parser lê da entrada padrão
+- A opção `-o` automaticamente habilita a geração de código C (não precisa usar `-c` junto)
+- Por padrão, quando usando `-c` sem `-o`, o código C é salvo em `output/` com o mesmo nome do arquivo de entrada mas com extensão `.c`
 
 ## Executando o Código C Gerado
 
@@ -120,7 +149,6 @@ O repositório inclui vários exemplos de código Penelope em diferentes locais:
 - `input/CodigosExemplos/codigoPenelope.txt` - Exemplo com funções e arrays
 - `input/CodigosExemplos/comParenteses.txt` - Exemplo com expressões parentetizadas
 - `input/CodigosExemplos/quantidadeVendas.txt` - Exemplo de processamento de dados
-- `simple_example.txt` - Exemplo simples para teste
 
 ### Problemas:
 - `input/Problemas/Problema1.txt`
