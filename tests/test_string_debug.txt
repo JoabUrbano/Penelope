@@ -1,5 +1,0 @@
-fun int testStringDebug() {
-    string: simpleString = "hello";
-    string[]: stringArray = ["world", "test"];
-    string: element = stringArray[0];
-}
