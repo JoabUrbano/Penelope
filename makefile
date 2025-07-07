@@ -1,7 +1,7 @@
 all: penelope_parser
 
-penelope_parser: parser.tab.c lex.yy.c ./utils/hashMap/hashMap.c ./utils/uniqueIdentifier/uniqueIdentifier.c ./structs/expression/expressionResult.c
-	gcc -o penelope_parser parser.tab.c lex.yy.c ./utils/hashMap/hashMap.c ./utils/uniqueIdentifier/uniqueIdentifier.c ./structs/expression/expressionResult.c -lfl -luuid -lm
+penelope_parser: parser.tab.c lex.yy.c ./utils/hashMap/hashMap.c ./utils/uniqueIdentifier/uniqueIdentifier.c ./structs/expression/expressionResult.c ./structs/lvalue/lvalueResult.c
+	gcc -o penelope_parser parser.tab.c lex.yy.c ./utils/hashMap/hashMap.c ./utils/uniqueIdentifier/uniqueIdentifier.c ./structs/expression/expressionResult.c ./structs/lvalue/lvalueResult.c -lfl -luuid -lm
 
 parser.tab.c parser.tab.h: parserPenelope.y
 	bison -d -v -g -o parser.tab.c parserPenelope.y

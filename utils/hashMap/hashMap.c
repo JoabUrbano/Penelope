@@ -114,6 +114,8 @@ void print_map(HashMap* map) {
             printf("%s", current->value.value.strVal);
         } else if (strcmp(current->value.type, "bool") == 0) {
             printf("%d", current->value.value.intVal);
+        } else if (strstr(current->value.type, "[]") != NULL) {
+            printf("[array do tipo %s]", current->value.type);
         } else {
             printf("(tipo desconhecido)");
         }
