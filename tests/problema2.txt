@@ -1,5 +1,5 @@
 fun void main() {
-    any: entradas = [15, 32, 77, 100, 49, 3, -1];  // simula entrada do usuário
+    int[]: entradas = [15, 32, 77, 100, 49, 3, -1];  // simula entrada do usuário
 
     int: i = 0;
     int: faixa1 = 0;  // [0, 25]
