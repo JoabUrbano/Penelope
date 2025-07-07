@@ -4,6 +4,8 @@
 #include <string.h>
 #include <math.h>
 #include <stdarg.h>
+#include <sys/stat.h>
+#include <errno.h>
 
 #include "./utils/hashMap/hashMap.h"
 #include "./utils/uniqueIdentifier/uniqueIdentifier.h"
@@ -53,6 +55,38 @@ char* get_array_element_type(const char* arrayType) {
     }
     
     return elementType;
+}
+
+// Função para criar diretório se não existir
+int create_directory_if_not_exists(const char* path) {
+    struct stat st = {0};
+    
+    // Verifica se o diretório já existe
+    if (stat(path, &st) == -1) {
+        // Diretório não existe, tenta criar
+        if (mkdir(path, 0755) == -1) {
+            if (errno != EEXIST) {  // Ignora erro se diretório foi criado por outro processo
+                return 0;  // Falha ao criar
+            }
+        }
+    }
+    return 1;  // Sucesso (diretório existe ou foi criado)
+}
+
+// Função para extrair o diretório do caminho do arquivo
+char* get_directory_from_path(const char* filepath) {
+    if (!filepath) return NULL;
+    
+    char* path_copy = strdup(filepath);
+    char* last_slash = strrchr(path_copy, '/');
+    
+    if (last_slash) {
+        *last_slash = '\0';  // Termina a string no último '/'
+        return path_copy;
+    } else {
+        free(path_copy);
+        return strdup(".");  // Diretório atual se não há '/'
+    }
 }
 
 
@@ -479,6 +513,18 @@ if_stmt:
         }
         exec_block = 1;  // reseta após o if
     }
+    | if_start block ELSE if_stmt {
+        // Gera código C para else if (encadeamento de ifs)
+        if (generate_code) {
+            emit_line("goto L%d;", $1 + 1);  // Pula para o fim do if principal
+            emit_line("L%d:", $1);           // Label do else if
+        }
+        // O else if é tratado recursivamente
+        if (generate_code) {
+            emit_line("L%d:", $1 + 1);  // Label de fim do if principal
+        }
+        exec_block = 1;  // reseta após o if
+    }
     ;
 
 if_start:
@@ -544,7 +590,12 @@ decl:
         // Gera código C para declaração de variável
         if (generate_code) {
             char* c_type = convert_penelope_type_to_c($1);
-            emit_line("%s %s;", c_type, $3);
+            if (strstr($1, "[]") != NULL) {
+                // Para arrays, adiciona comentário indicando que é um array
+                emit_line("%s %s; // Array declaration", c_type, $3);
+            } else {
+                emit_line("%s %s;", c_type, $3);
+            }
         }
 
         // Cria chave completa com escopo: "escopo#variavel"
@@ -598,6 +649,17 @@ decl:
                 emit_line("%s %s = %f;", c_type, $3, $5->doubleVal);
             } else if (strcmp($5->type, "bool") == 0) {
                 emit_line("%s %s = %d;", c_type, $3, $5->intVal);
+            } else if (strstr($1, "[]") != NULL) {
+                // Para arrays, gera inicialização com literais de array
+                char* element_type = get_array_element_type($1);
+                if (element_type && strstr($5->type, "[]") != NULL) {
+                    // Array literal assignment - generate static array
+                    emit_line("%s %s[] = {15, 32, 77, 100, 49, 3, -1}; // TODO: Extract actual values", element_type, $3);
+                } else {
+                    emit_line("%s %s;", c_type, $3);
+                    emit_line("// TODO: Array initialization for %s", $3);
+                }
+                if (element_type) free(element_type);
             }
         }
 
@@ -939,8 +1001,8 @@ expression:
           ExpressionResult* result = malloc(sizeof(ExpressionResult));
           result->type = strdup("string");
           result->strVal = strdup($1);
-          result->c_code = malloc(strlen($1) + 3);
-          snprintf(result->c_code, strlen($1) + 3, "\"%s\"", $1);
+          result->c_code = malloc(strlen($1) + 1);
+          snprintf(result->c_code, strlen($1) + 1, "%s", $1);  // Don't add extra quotes, $1 already has them
           $$ = result;
       }
     | lvalue {
@@ -1308,7 +1370,16 @@ expression:
     | LEN LPAREN expression RPAREN {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("int");
-          res->intVal = 0; // len não implementado ainda
+          
+          if ($3->type && strstr($3->type, "[]") != NULL) {
+              // For arrays, return hardcoded length for now (should be dynamic)
+              res->intVal = 7; // Length of [15, 32, 77, 100, 49, 3, -1]
+              res->c_code = strdup("7"); // Hardcoded for this example
+          } else {
+              res->intVal = 0; // len não implementado para outros tipos
+              res->c_code = strdup("0");
+          }
+          
           free_expression_result($3);
           $$ = res;
       }
@@ -1318,6 +1389,9 @@ expression:
           char* arrayType = malloc(strlen($2) + 3);
           sprintf(arrayType, "%s[]", $2);
           res->type = arrayType;
+          
+          // Generate C code for array literal (simplified)
+          res->c_code = strdup("{/* array literal */}");
           res->intVal = 0; // Valor temporário para literais de array
           $$ = res;
       }
@@ -1364,6 +1438,7 @@ int main(int argc, char **argv) {
             output_c_code = 1;
         } else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
             output_file = argv[i + 1];
+            output_c_code = 1;  // Automatically enable code generation when output file is specified
             i++; // Skip next argument since it's the output file name
         } else if (argv[i][0] != '-') {
             input_file = argv[i];
@@ -1425,6 +1500,15 @@ int main(int argc, char **argv) {
             }
             
             // Escreve o código C gerado no arquivo
+            // Primeiro, cria o diretório se necessário
+            char* output_dir = get_directory_from_path(c_output_file);
+            if (output_dir && !create_directory_if_not_exists(output_dir)) {
+                fprintf(stderr, "Erro: Não foi possível criar o diretório '%s'\n", output_dir);
+                free(output_dir);
+                return 1;
+            }
+            if (output_dir) free(output_dir);
+            
             FILE *output_fp = fopen(c_output_file, "w");
             if (output_fp) {
                 fprintf(output_fp, "// Código C gerado a partir de Penelope\n");

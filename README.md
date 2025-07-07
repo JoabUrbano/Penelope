@@ -61,7 +61,7 @@ Para apenas analisar a sintaxe e semântica de um programa Penelope sem gerar c�
 
 **Exemplo:**
 ```bash
-./penelope_parser tests/CodigosExemplos/codigoPenelope.txt
+./penelope_parser input/CodigosExemplos/codigoPenelope.txt
 ```
 
 Este modo irá:
@@ -80,7 +80,7 @@ Para gerar código C a partir de um programa Penelope:
 
 **Exemplo:**
 ```bash
-./penelope_parser -c tests/CodigosExemplos/codigoPenelope.txt
+./penelope_parser -c input/CodigosExemplos/codigoPenelope.txt
 ```
 
 Este modo irá:
@@ -117,15 +117,15 @@ gcc -o output/programa output/meu_programa.c
 O repositório inclui vários exemplos de código Penelope em diferentes locais:
 
 ### Exemplos principais:
-- `tests/CodigosExemplos/codigoPenelope.txt` - Exemplo com funções e arrays
-- `tests/CodigosExemplos/comParenteses.txt` - Exemplo com expressões parentetizadas
-- `tests/CodigosExemplos/quantidadeVendas.txt` - Exemplo de processamento de dados
+- `input/CodigosExemplos/codigoPenelope.txt` - Exemplo com funções e arrays
+- `input/CodigosExemplos/comParenteses.txt` - Exemplo com expressões parentetizadas
+- `input/CodigosExemplos/quantidadeVendas.txt` - Exemplo de processamento de dados
 - `simple_example.txt` - Exemplo simples para teste
 
 ### Problemas:
-- `tests/Problemas/Problema1.txt`
-- `tests/Problemas/Problema2.txt`
-- `tests/Problemas/Problema3.txt`
+- `input/Problemas/Problema1.txt`
+- `input/Problemas/Problema2.txt`
+- `input/Problemas/Problema3.txt`
 
 ## Características da Linguagem Penelope
 
