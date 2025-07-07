@@ -11,10 +11,13 @@
 #define MAX_SCOPE_DEPTH 100
 char* scopeStack[MAX_SCOPE_DEPTH];
 int scopeTop = -1;
+int exec_block = 1;  // Flag de controle para if/else/while gustavo
 
 HashMap symbolTable = { NULL };
 char *currentScope = NULL;
 int semantic_errors = 0; 
+int last_condition_result = 0;  // serve pra lembrar o resultado da condição do IF
+
 
 
 int are_types_compatible(const char* declaredType, const char* exprType) {
@@ -131,9 +134,15 @@ void pop_scope() {
 }
 
 
-%token <num> BOOL
+
 %token <str> ID TYPE STRING
-%token <num> INT FLOAT
+%token <num> NUMBER
+%token <num> BOOL
+%token BREAK
+%token AND 
+%token OR
+
+
 
 %token FUN WHILE FOR IF ELSE LEN PRINT RETURN
 %token LBRACKET RBRACKET COMMA LPAREN RPAREN COLON SEMICOLON NEWLINE
@@ -147,15 +156,17 @@ void pop_scope() {
 %type <exprResult> expression
 
 %right ASSIGNMENT
+%left OR
+%left AND
 %left EQUALS
 %left SMALLEREQUALS BIGGEREQUALS SMALLER BIGGER
 %left ADDITION SUBTRACTION
 %left MULTIPLICATION DIVISION
-%right EXPONENTIATION
+%right EXPONENTIATION   
 %nonassoc UMINUS 
-
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
+
 
 %start program
 
@@ -206,7 +217,17 @@ simple_stmt:
     | assign_stmt SEMICOLON
     | return_stmt SEMICOLON
     | print_stmt SEMICOLON
-    | expression SEMICOLON
+    | expression SEMICOLON {
+        if (exec_block) {
+            // Executa a expressão apenas se for dentro de bloco válido
+        }
+    }
+
+    | BREAK SEMICOLON {
+    if (exec_block) {
+        // break real ainda não implementado — só evitar erro
+    }
+}
     ;
 
 compound_stmt:
@@ -220,9 +241,27 @@ while_stmt:
     ;
 
 if_stmt:
-    IF LPAREN expression RPAREN block %prec LOWER_THAN_ELSE
-    | IF LPAREN expression RPAREN block ELSE block
+    IF LPAREN expression RPAREN {
+        last_condition_result = ($3 != 0.0);  // armazena a condição numa variável global
+        exec_block = last_condition_result;   // ativa o bloco do if se verdadeiro
+    } block else_part {
+        exec_block = 1;  // reseta após o if
+    }
     ;
+
+else_part:
+    /* empty */ {
+        // No else clause
+    }
+    | ELSE {
+        exec_block = !last_condition_result;  // ativa o bloco do else se falso
+    } block
+    | ELSE {
+        exec_block = !last_condition_result;  // ativa o bloco do else se falso
+    } if_stmt
+
+
+
 
 for_stmt:
     FOR {
@@ -348,11 +387,12 @@ return_stmt:
     RETURN expression { /* Poderia adicionar verificação de tipo de retorno aqui */ }
     ;
 
-print_stmt:
+print_stmt: 
     PRINT LPAREN print_arg_list RPAREN {
-        print_newline();
+        if (exec_block) print_newline();
     }
-    ;
+    ;// gustavo
+
 
 print_arg_list:
     print_arg
@@ -372,14 +412,13 @@ print_arg:
         }
     }
     | STRING {
-        print_string($1);
+        if (exec_block) print_string($1);
     }
     ;
 
 assign_stmt:
     lvalue ASSIGNMENT expression {
-        // Verifica se a variável do lvalue foi declarada antes de atribuir
-        if ($1 && strcmp($1, "array_access") != 0) {
+        if (exec_block && $1 && strcmp($1, "array_access") != 0) {
             if (find_variable_in_scopes($1) == NULL) {
                 semantic_error("Variável '%s' não declarada.", $1);
                 YYABORT;
@@ -389,10 +428,8 @@ assign_stmt:
         }
     }
     | lvalue INCREMENT {
-        if ($1 && strcmp($1, "array_access") != 0) {
-            Node* node = find_variable_in_scopes($1);
-
-            if (node == NULL) {
+        if (exec_block && $1 && strcmp($1, "array_access") != 0) {
+            if (find_variable_in_scopes($1) == NULL) {
                 semantic_error("Variável '%s' não declarada.", $1);
                 YYABORT;
             } else {
@@ -410,8 +447,8 @@ assign_stmt:
         }
     }
     | lvalue DECREMENT {
-        if ($1 && strcmp($1, "array_access") != 0) {
-             if (find_variable_in_scopes($1) == NULL) {
+        if (exec_block && $1 && strcmp($1, "array_access") != 0) {
+            if (find_variable_in_scopes($1) == NULL) {
                 semantic_error("Variável '%s' não declarada.", $1);
                 YYABORT;
             } else {
@@ -420,7 +457,8 @@ assign_stmt:
             }
         }
     }
-    ;
+;
+
 
 lvalue:
     ID { 
@@ -433,30 +471,8 @@ lvalue:
     ;
 
 expression:
-    BOOL {
-        ExpressionResult* result = malloc(sizeof(ExpressionResult));
-        result->type = strdup("bool");
-        result->intVal = $1;
-        $$ = result;
-    }
-    | INT {
-        ExpressionResult* result = malloc(sizeof(ExpressionResult));
-        result->type = strdup("int");
-        result->intVal = $1;
-        $$ = result;
-    }
-    | FLOAT {
-        ExpressionResult* result = malloc(sizeof(ExpressionResult));
-        result->type = strdup("float");
-        result->doubleVal = $1;
-        $$ = result;
-    }
-    | STRING {
-          ExpressionResult* result = malloc(sizeof(ExpressionResult));
-          result->type = strdup("string");
-          result->strVal = strdup($1);
-          $$ = result;
-      }
+    NUMBER                                         { $$ = $1; }
+    | BOOL                                         { $$ = $1; }
     | lvalue {
         ExpressionResult* result = malloc(sizeof(ExpressionResult));
         Node* varNode = find_variable_in_scopes($1);
@@ -685,31 +701,27 @@ expression:
             res->type = strdup("float");
             res->doubleVal = -$2->doubleVal;
         } else {
-            semantic_error("Operador unário '-' inválido para o tipo %s.", $2->type);
-            free(res);
-            YYABORT;
+            $$ = 0.0; // Valor padrão para acesso a array (ainda não implementado)
         }
-        free_expression_result($2);
-        $$ = res;
     }
-    | ID LPAREN arg_list_opt RPAREN {
-          ExpressionResult* res = malloc(sizeof(ExpressionResult));
-          res->type = strdup("float");
-          res->doubleVal = 0.0; // Função não implementada ainda
-          $$ = res;
-      }
-    | LEN LPAREN expression RPAREN {
-          ExpressionResult* res = malloc(sizeof(ExpressionResult));
-          res->type = strdup("int");
-          res->doubleVal = 0.0; // len não implementado ainda
-          $$ = res;
-      }
-    | LBRACKET list_expression RBRACKET {
-          ExpressionResult* res = malloc(sizeof(ExpressionResult));
-          res->type = strdup("float");
-          res->doubleVal = 0.0; // arrays não implementados
-          $$ = res;
-      }
+    | LPAREN expression RPAREN                     { $$ = $2; }
+    | expression ADDITION expression               { $$ = $1 + $3; }
+    | expression SUBTRACTION expression            { $$ = $1 - $3; }
+    | expression MULTIPLICATION expression         { $$ = $1 * $3; }
+    | expression DIVISION expression               { $$ = $1 / $3; }
+    | expression EXPONENTIATION expression         { $$ = power_operation($1, $3); }
+    | expression SMALLER expression                { $$ = ($1 < $3) ? 1.0 : 0.0; }
+    | expression BIGGER expression                 { $$ = ($1 > $3) ? 1.0 : 0.0; }
+    | expression SMALLEREQUALS expression          { $$ = ($1 <= $3) ? 1.0 : 0.0; }
+    | expression BIGGEREQUALS expression           { $$ = ($1 >= $3) ? 1.0 : 0.0; }
+    | expression EQUALS expression                 { $$ = ($1 == $3) ? 1.0 : 0.0; }
+    | expression AND expression               { $$ = ($1 != 0.0 && $3 != 0.0) ? 1.0 : 0.0; }
+    | expression OR expression                { $$ = ($1 != 0.0 || $3 != 0.0) ? 1.0 : 0.0; }
+
+    | SUBTRACTION expression %prec UMINUS          { $$ = -$2; }
+    | ID LPAREN arg_list_opt RPAREN                { $$ = 0.0; /* Function calls not implemented yet */ }
+    | LEN LPAREN expression RPAREN                 { $$ = 0.0; /* len() not implemented yet */ }
+    | LBRACKET list_expression RBRACKET            { $$ = 0.0; /* Array literals not implemented yet */ }
     ;
 
 
@@ -749,10 +761,15 @@ int main(int argc, char **argv) {
 
     push_scope(strdup("global"));
 
-    if (yyparse() == 0 && semantic_errors == 0) {
+    int parse_result = yyparse();
+    int syntax_errors = (parse_result != 0) ? 1 : 0;
+    int total_errors = syntax_errors + semantic_errors;
+
+    if (parse_result == 0 && semantic_errors == 0) {
         printf("Análise concluída com sucesso. A sintaxe e a semântica estão corretas!\n");
     } else {
-        printf("Falha na análise. Foram encontrados %d erros semânticos e/ou erros de sintaxe.\n", semantic_errors);
+        printf("Falha na análise. Foram encontrados %d erros de sintaxe e %d erros semânticos (total: %d erros).\n", 
+               syntax_errors, semantic_errors, total_errors);
     }
 
     print_map(&symbolTable);
@@ -762,5 +779,5 @@ int main(int argc, char **argv) {
 
     free_map(&symbolTable);
 
-    return (semantic_errors > 0);
+    return (total_errors > 0);
 }

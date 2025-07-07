@@ -10,9 +10,7 @@
 %%
 
 "fun"                { return FUN; }
-(int|float|void|string|bool) { yylval.str = strdup(yytext); return TYPE; }
-"true" { yylval.num = 1.0; return BOOL; }
-"false" { yylval.num = 0.0; return BOOL; }
+(int|float|void|any|string|bool) { yylval.str = strdup(yytext); return TYPE; }
 "while"              { return WHILE; }
 "for"                { return FOR; }
 "if"                 { return IF; }
@@ -44,6 +42,11 @@
 "/"                  { return DIVISION; }
 "+"                  { return ADDITION; }
 "-"                  { return SUBTRACTION; }
+"break"              { return BREAK; }
+"&&"                 { return AND; }
+"||"                 { return OR; }
+"true"  { yylval.num = 1.0; return BOOL; }
+"false" { yylval.num = 0.0; return BOOL; }
 
 [0-9]+\.[0-9]+       { yylval.num = atof(yytext); return FLOAT; }
 [0-9]+               { yylval.num = atoi(yytext); return INT; }
