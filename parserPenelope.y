@@ -1,396 +1,20 @@
 %{
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-#include <stdarg.h>
-#include <sys/stat.h>
-#include <errno.h>
+#include "parser/parser_common.h"
 
-#include "./utils/hashMap/hashMap.h"
-#include "./utils/uniqueIdentifier/uniqueIdentifier.h"
-
-#define MAX_SCOPE_DEPTH 100
-#define MAX_CODE_SIZE 10000
-
-char* scopeStack[MAX_SCOPE_DEPTH];
-int scopeTop = -1;
-int exec_block = 1;  // Flag de controle para if/else/while gustavo
-
-HashMap symbolTable = { NULL };
-char *currentScope = NULL;
-int semantic_errors = 0; 
-int syntax_errors = 0;
-int last_condition_result = 0;  // serve pra lembrar o resultado da condição do IF
-
-// Globais para geração de código
-char generated_code[MAX_CODE_SIZE];
-int code_position = 0;
-int indent_level = 0;
-int generate_code = 1;  // Flag para habilitar/desabilitar geração de código
-int label_counter = 0;  // Para gerar labels únicos
-int inline_mode = 0;    // Para geração de código em linha (for loops)
-
-// Flags para controle de formatação de impressão
-int is_matrix_element_print = 0;  // Flag para detectar impressão de elementos de matriz
-int has_explicit_newline = 0;     // Flag para detectar quebras de linha explícitas
-int last_print_arg_count = 0;     // Contador de argumentos no último print
-
-// Controle de loops para break/continue
-int current_loop_exit_label = -1;  // Label de saída do loop atual para break
-
-
-
-int are_types_compatible(const char* declaredType, const char* exprType) {
-    if (strcmp(declaredType, exprType) == 0) return 1;
-    if ((strcmp(declaredType, "float") == 0 && strcmp(exprType, "int") == 0) ||
-      (strcmp(declaredType, "int") == 0 && strcmp(exprType, "float") == 0)) return 1;
-    return 0;
-}
-
-// Função para extrair o tipo base de um tipo de array (ex: "int[]" -> "int")
-char* get_array_element_type(const char* arrayType) {
-    if (!arrayType || !strstr(arrayType, "[]")) {
-        return NULL; // Não é um tipo de array
-    }
-    
-    char* elementType = malloc(strlen(arrayType));
-    strcpy(elementType, arrayType);
-    
-    // Remove o "[]" do final
-    char* bracket = strstr(elementType, "[]");
-    if (bracket) {
-        *bracket = '\0';
-    }
-    
-    return elementType;
-}
-
-// Função para criar diretório se não existir
-int create_directory_if_not_exists(const char* path) {
-    struct stat st = {0};
-    
-    // Verifica se o diretório já existe
-    if (stat(path, &st) == -1) {
-        // Diretório não existe, tenta criar
-        if (mkdir(path, 0755) == -1) {
-            if (errno != EEXIST) {  // Ignora erro se diretório foi criado por outro processo
-                return 0;  // Falha ao criar
-            }
-        }
-    }
-    return 1;  // Sucesso (diretório existe ou foi criado)
-}
-
-// Função para extrair o diretório do caminho do arquivo
-char* get_directory_from_path(const char* filepath) {
-    if (!filepath) return NULL;
-    
-    char* path_copy = strdup(filepath);
-    char* last_slash = strrchr(path_copy, '/');
-    
-    if (last_slash) {
-        *last_slash = '\0';  // Termina a string no último '/'
-        return path_copy;
-    } else {
-        free(path_copy);
-        return strdup(".");  // Diretório atual se não há '/'
-    }
-}
-
-// Funções para controle de modo inline (para for loops)
-void set_inline_mode(int mode) {
-    inline_mode = mode;
-}
-
-void emit_inline(const char* format, ...) {
-    if (!generate_code) return;
-    
-    va_list args;
-    va_start(args, format);
-    
-    // Adiciona o código formatado (sem quebra de linha)
-    int remaining = MAX_CODE_SIZE - code_position - 1;
-    if (remaining > 0) {
-        int written = vsnprintf(generated_code + code_position, remaining, format, args);
-        if (written > 0 && written < remaining) {
-            code_position += written;
-        }
-    }
-    
-    va_end(args);
-}
-
-
-void semantic_error(const char* format, ...) {
-    extern int yylineno;
-    fprintf(stderr, "Erro Semântico na linha %d: ", yylineno);
-
-    va_list args;
-    va_start(args, format);
-    vfprintf(stderr, format, args);  // Imprime a mensagem formatada
-    va_end(args);
-
-    fprintf(stderr, "\n");
-    semantic_errors++;
-}
-
-// Funções auxiliares para geração de código
-void emit_code(const char* format, ...) {
-    if (!generate_code) return;
-    
-    va_list args;
-    va_start(args, format);
-    
-    // Adiciona o código formatado (sem indentação automática)
-    int remaining = MAX_CODE_SIZE - code_position - 1;
-    if (remaining > 0) {
-        int written = vsnprintf(generated_code + code_position, remaining, format, args);
-        if (written > 0 && written < remaining) {
-            code_position += written;
-        }
-    }
-    
-    va_end(args);
-}
-
-void emit_line(const char* format, ...) {
-    if (!generate_code) return;
-    
-    va_list args;
-    va_start(args, format);
-    
-    // Adiciona o código formatado (sem indentação automática)
-    int remaining = MAX_CODE_SIZE - code_position - 1;
-    if (remaining > 0) {
-        int written = vsnprintf(generated_code + code_position, remaining, format, args);
-        if (written > 0 && written < remaining) {
-            code_position += written;
-        }
-    }
-    
-    // Adiciona quebra de linha
-    if (code_position < MAX_CODE_SIZE - 1) {
-        generated_code[code_position++] = '\n';
-    }
-    
-    va_end(args);
-}
-
-char* convert_penelope_type_to_c(const char* penelopeType) {
-    if (strcmp(penelopeType, "int") == 0) return "int";
-    if (strcmp(penelopeType, "bool") == 0) return "int";  // bool -> int in C
-    if (strcmp(penelopeType, "float") == 0) return "float";
-    if (strcmp(penelopeType, "string") == 0) return "char*";
-    if (strcmp(penelopeType, "int[][]") == 0) return "int**";
-    if (strcmp(penelopeType, "float[][]") == 0) return "float**";
-    if (strstr(penelopeType, "int[]")) return "int*";
-    if (strstr(penelopeType, "float[]")) return "float*";
-    if (strstr(penelopeType, "string[]")) return "char**";
-    return "void"; // fallback padrão
-}
-
-int generate_label() {
-    return ++label_counter;
-}
-
-void increase_indent() {
-    indent_level++;
-}
-
-void decrease_indent() {
-    if (indent_level > 0) {
-        indent_level--;
-    }
-}
-
-void init_code_generation() {
-    code_position = 0;
-    indent_level = 0;
-    label_counter = 0;
-    memset(generated_code, 0, MAX_CODE_SIZE);
-    
-    // Emite cabeçalhos C e início da função main
-    emit_line("#include <stdio.h>");
-    emit_line("#include <stdlib.h>");
-    emit_line("#include <string.h>");
-    emit_line("");
-}
-
-void finalize_code_generation() {
-    // Adiciona limpeza de arrays 2D no final da função main
-    if (generate_code) {
-        emit_line("// Limpeza de memória dos arrays 2D");
-        emit_line("// Note: Em um código real, você deveria liberar a memória aqui");
-        emit_line("// Exemplo para matriz1: emit_2d_array_deallocation(\"matriz1\", \"linhas1\");");
-    }
-    
-    // Fecha qualquer função main aberta se necessário
-    if (code_position > 0) {
-        generated_code[code_position] = '\0';
-    }
-}
-
-// Função para gerar código de alocação de array 2D
-void emit_2d_array_allocation(const char* array_name, const char* rows_var, const char* cols_var) {
-    if (!generate_code) return;
-    
-    emit_line("// Alocação de memória para array 2D %s", array_name);
-    emit_line("%s = malloc(%s * sizeof(int*));", array_name, rows_var);
-    emit_line("for (int _i = 0; _i < %s; _i++) {", rows_var);
-    emit_line("    %s[_i] = malloc(%s * sizeof(int));", array_name, cols_var);
-    emit_line("}");
-}
-
-// Função para gerar código de liberação de array 2D
-void emit_2d_array_deallocation(const char* array_name, const char* rows_var) {
-    if (!generate_code) return;
-    
-    emit_line("// Liberação de memória para array 2D %s", array_name);
-    emit_line("for (int _i = 0; _i < %s; _i++) {", rows_var);
-    emit_line("    free(%s[_i]);", array_name);
-    emit_line("}");
-    emit_line("free(%s);", array_name);
-}
-
-Node* find_variable_in_scopes(char *name) {
-    for (int i = scopeTop; i >= 0; i--) {
-        char *scope = scopeStack[i];
-        char *fullKey = malloc(strlen(scope) + strlen(name) + 2);
-        sprintf(fullKey, "%s#%s", scope, name);
-        
-        Node *node = find_node(&symbolTable, fullKey);
-        free(fullKey);
-
-        if (node) {
-            return node; // Variável encontrada
-        }
-    }
-    return NULL; // Variável não encontrada em nenhum escopo
-}
-
-Node* find_variable_in_current_scope(char *name) {
-    if (currentScope == NULL) return NULL;
-    
-    char *fullKey = malloc(strlen(currentScope) + strlen(name) + 2);
-    sprintf(fullKey, "%s#%s", currentScope, name);
-    
-    Node *node = find_node(&symbolTable, fullKey);
-    free(fullKey);
-    
-    return node;
-}
-
-double evaluate_number(char *str) {
-    return atof(str);
-}
-
-// Função será definida após declarações de struct
-
-void print_string(char *str) {
-    // Remove aspas de literais de string
-    if (str && str[0] == '"' && str[strlen(str)-1] == '"') {
-        str[strlen(str)-1] = '\0';  // Remove aspas finais
-        printf("%s ", str + 1);   // Pula aspas iniciais, adiciona espaço
-    } else if (str) {
-        printf("%s ", str);
-    }
-}
-
-void print_newline() {
-    // Não gera saída em tempo de execução - apenas gera código C
-    // printf("\n");
-}
-
-double power_operation(double base, double exponent) {
-    return pow(base, exponent);
-}
-
+// Forward declarations for Bison
+extern int yylineno;
 extern int yylex();
-extern int yyparse();
-extern FILE* yyin;
-void yyerror(const char* s);
+extern void yyerror(const char* s);
 
-void push_scope(char *scope) {
-    if (scopeTop < MAX_SCOPE_DEPTH - 1) {
-        scopeStack[++scopeTop] = scope;
-        currentScope = scope;
-    } else {
-        fprintf(stderr, "Erro: Estouro da pilha de escopos\n");
-        exit(1);
-    }
-}
 
-void pop_scope() {
-    if (scopeTop >= 0) {
-        free(scopeStack[scopeTop]);
-        scopeStack[scopeTop--] = NULL;
-        currentScope = (scopeTop >= 0) ? scopeStack[scopeTop] : NULL;
-    } else {
-        fprintf(stderr, "Erro: Pilha de escopos vazia\n");
-        exit(1);
-    }
-}
+
+
 %}
 
 /* Inclua o header aqui, *fora* do bloco %{...%}, para que o Bison leia a definição do tipo ANTES do %union */
 %code requires {
     #include "./structs/expression/expressionResult.h"
     #include "./structs/lvalue/lvalueResult.h"
-}
-
-%code {
-    // Gera código C para uma expressão
-    char* expression_to_c_code(ExpressionResult* expr) {
-        static char buffer[256];
-        
-        if (!expr) {
-            strcpy(buffer, "0");
-            return buffer;
-        }
-        
-        if (strcmp(expr->type, "int") == 0) {
-            snprintf(buffer, sizeof(buffer), "%d", expr->intVal);
-        } else if (strcmp(expr->type, "float") == 0) {
-            snprintf(buffer, sizeof(buffer), "%f", expr->doubleVal);
-        } else if (strcmp(expr->type, "bool") == 0) {
-            snprintf(buffer, sizeof(buffer), "%d", expr->intVal);
-        } else if (strcmp(expr->type, "string") == 0) {
-            snprintf(buffer, sizeof(buffer), "\"%s\"", expr->strVal ? expr->strVal : "");
-        } else {
-            strcpy(buffer, "0");
-        }
-        
-        return buffer;
-    }
-
-    void print_value(ExpressionResult* expr) {
-        // Não gera saída em tempo de execução durante análise - apenas gera código C
-        /*
-        if (!expr) return;
-        
-        if (strcmp(expr->type, "int") == 0) {
-            printf("%d ", expr->intVal);
-        } else if (strcmp(expr->type, "float") == 0) {
-            printf("%.6g ", expr->doubleVal);
-        } else if (strcmp(expr->type, "bool") == 0) {
-            printf("%s ", expr->intVal ? "true" : "false");
-        } else if (strcmp(expr->type, "string") == 0) {
-            // Trata literais de string - remove aspas se presentes
-            if (expr->strVal && expr->strVal[0] == '"' && expr->strVal[strlen(expr->strVal)-1] == '"') {
-                // Cria uma string temporária sem aspas
-                char* temp = strdup(expr->strVal);
-                temp[strlen(temp)-1] = '\0';  // Remove aspas finais
-                printf("%s ", temp + 1);      // Pula aspas iniciais
-                free(temp);
-            } else {
-                printf("%s ", expr->strVal ? expr->strVal : "");
-            }
-        } else {
-            printf("unknown ");
-        }
-        */
-    }
 }
 
 %union {
@@ -1113,13 +737,13 @@ assign_stmt:
             }
             // TODO: Implementar incremento real em elementos de array
         } else if ($1->type == LVALUE_VAR) {
-            Node* node = find_variable_in_scopes($1->varName);
+            Data* node = find_variable_in_scopes($1->varName);
 
             if (node == NULL) {
                 semantic_error("Variável '%s' não declarada.", $1->varName);
                 YYABORT;
             } else {
-                char* type = node->value.type;
+                char* type = node->type;
 
                 if (strcmp(type, "int") != 0 && strcmp(type, "float") != 0) {
                     semantic_error("Não é possível usar o operador ++ para tipos que não sejam int e float\n");
@@ -1136,9 +760,9 @@ assign_stmt:
                     
                     // Atualiza valor na tabela de símbolos para análise semântica
                     if (strcmp(type, "int") == 0) {
-                        node->value.value.intVal += 1;
+                        node->value.intVal += 1;
                     } else if (strcmp(type, "float") == 0) {
-                        node->value.value.doubleVal += 1.0;
+                        node->value.doubleVal += 1.0;
                     }
                 }
             }
@@ -1158,8 +782,8 @@ assign_stmt:
                 semantic_error("Variável '%s' não declarada.", $1->varName);
                 YYABORT;
             } else {
-                Node* node = find_variable_in_scopes($1->varName);
-                char* type = node->value.type;
+                Data* node = find_variable_in_scopes($1->varName);
+                char* type = node->type;
 
                 if (strcmp(type, "int") != 0 && strcmp(type, "float") != 0) {
                     semantic_error("Não é possível usar o operador -- para tipos que não sejam int e float\n");
@@ -1176,9 +800,9 @@ assign_stmt:
                     
                     // Atualiza valor na tabela de símbolos para análise semântica
                     if (strcmp(type, "int") == 0) {
-                        node->value.value.intVal -= 1;
+                        node->value.intVal -= 1;
                     } else if (strcmp(type, "float") == 0) {
-                        node->value.value.doubleVal -= 1.0;
+                        node->value.doubleVal -= 1.0;
                     }
                 }
             }
@@ -1226,13 +850,13 @@ lvalue:
             
         } else if ($1->type == LVALUE_VAR) {
             // Single-dimensional array access: arr[i]
-            Node* arrayNode = find_variable_in_scopes($1->varName);
+            Data* arrayNode = find_variable_in_scopes($1->varName);
             if (!arrayNode) {
                 semantic_error("Variável '%s' não declarada.", $1->varName);
                 YYABORT;
             }
             
-            if (!strstr(arrayNode->value.type, "[]")) {
+            if (!strstr(arrayNode->type, "[]")) {
                 semantic_error("Tentativa de indexar uma variável que não é um array: '%s'.", $1->varName);
                 YYABORT;
             }
@@ -1244,7 +868,7 @@ lvalue:
             }
             
             // Determina o tipo do elemento
-            char* elementType = get_array_element_type(arrayNode->value.type);
+            char* elementType = get_array_element_type(arrayNode->type);
             
             // Cria array de índices com um elemento
             char* indices[1];
@@ -1331,7 +955,7 @@ expression:
                 YYABORT;
             }
         } else if ($1->type == LVALUE_VAR) {
-            Node* varNode = find_variable_in_scopes($1->varName);
+            Data* varNode = find_variable_in_scopes($1->varName);
             
             if (!varNode) {
                 semantic_error("Variável '%s' não declarada.", $1->varName);
@@ -1339,22 +963,22 @@ expression:
                 free_lvalue_result($1);
                 YYABORT;
             } else {
-                result->type = strdup(varNode->value.type);
+                result->type = strdup(varNode->type);
                 result->c_code = strdup($1->varName); // Just use the variable name
 
-            if (strcmp(varNode->value.type, "int") == 0) {
-                result->intVal = varNode->value.value.intVal;
-            } else if (strcmp(varNode->value.type, "float") == 0) {
-                result->doubleVal = varNode->value.value.doubleVal;
-            } else if (strcmp(varNode->value.type, "bool") == 0) {
-                result->intVal = varNode->value.value.intVal;
-            } else if (strcmp(varNode->value.type, "string") == 0) {
-                result->strVal = strdup(varNode->value.value.strVal);
-            } else if (strstr(varNode->value.type, "[]") != NULL) {
+            if (strcmp(varNode->type, "int") == 0) {
+                result->intVal = varNode->value.intVal;
+            } else if (strcmp(varNode->type, "float") == 0) {
+                result->doubleVal = varNode->value.doubleVal;
+            } else if (strcmp(varNode->type, "bool") == 0) {
+                result->intVal = varNode->value.intVal;
+            } else if (strcmp(varNode->type, "string") == 0) {
+                result->strVal = strdup(varNode->value.strVal);
+            } else if (strstr(varNode->type, "[]") != NULL) {
                 // Tipos de array são suportados - define valor padrão por enquanto
                 result->intVal = 0; // Arrays avaliam para 0 por enquanto (valor temporário)
             } else {
-                semantic_error("Tipo '%s' não suportado em expressões.", varNode->value.type);
+                semantic_error("Tipo '%s' não suportado em expressões.", varNode->type);
                 free(result);
                 free_lvalue_result($1);
                 YYABORT;
