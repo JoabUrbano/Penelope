@@ -44,6 +44,9 @@
 "/"                  { return DIVISION; }
 "+"                  { return ADDITION; }
 "-"                  { return SUBTRACTION; }
+"break"              { return BREAK; }
+"&&"                 { return AND; }
+"||"                 { return OR; }
 
 [0-9]+\.[0-9]+       { yylval.num = atof(yytext); return FLOAT; }
 [0-9]+               { yylval.num = atoi(yytext); return INT; }
@@ -61,4 +64,3 @@
 .                    { fprintf(stderr, "Erro Léxico: Caractere inesperado '%s'\n", yytext); exit(1); }
 
 %%
-

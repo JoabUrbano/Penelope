@@ -11,11 +11,13 @@
 #define MAX_SCOPE_DEPTH 100
 char* scopeStack[MAX_SCOPE_DEPTH];
 int scopeTop = -1;
+int exec_block = 1;  // Flag de controle para if/else/while gustavo
 
 HashMap symbolTable = { NULL };
 char *currentScope = NULL;
 int semantic_errors = 0; 
-int syntax_errors = 0; 
+int last_condition_result = 0;  // serve pra lembrar o resultado da condição do IF
+
 
 
 int are_types_compatible(const char* declaredType, const char* exprType) {
@@ -89,9 +91,7 @@ double evaluate_number(char *str) {
     return atof(str);
 }
 
-void print_value(double value) {
-    printf("%.6g ", value);  // Imprime com espaço, sem quebra de linha, até 6 dígitos significativos
-}
+// Function will be defined after struct declarations
 
 void print_string(char *str) {
     // Remove aspas de literais de string
@@ -144,6 +144,33 @@ void pop_scope() {
     #include "./structs/lvalue/lvalueResult.h"
 }
 
+%code {
+    void print_value(ExpressionResult* expr) {
+        if (!expr) return;
+        
+        if (strcmp(expr->type, "int") == 0) {
+            printf("%d ", expr->intVal);
+        } else if (strcmp(expr->type, "float") == 0) {
+            printf("%.6g ", expr->doubleVal);
+        } else if (strcmp(expr->type, "bool") == 0) {
+            printf("%s ", expr->intVal ? "true" : "false");
+        } else if (strcmp(expr->type, "string") == 0) {
+            // Handle string literals - remove quotes if present
+            if (expr->strVal && expr->strVal[0] == '"' && expr->strVal[strlen(expr->strVal)-1] == '"') {
+                // Create a temporary string without quotes
+                char* temp = strdup(expr->strVal);
+                temp[strlen(temp)-1] = '\0';  // Remove closing quote
+                printf("%s ", temp + 1);      // Skip opening quote
+                free(temp);
+            } else {
+                printf("%s ", expr->strVal ? expr->strVal : "");
+            }
+        } else {
+            printf("unknown ");
+        }
+    }
+}
+
 %union {
     char *str;
     double num;
@@ -154,6 +181,12 @@ void pop_scope() {
 
 %token <num> BOOL
 %token <str> ID TYPE STRING
+%token <num> NUMBER
+%token BREAK
+%token AND 
+%token OR
+
+
 %token <num> INT FLOAT
 
 %token FUN WHILE FOR IF ELSE LEN PRINT RETURN
@@ -169,15 +202,17 @@ void pop_scope() {
 %type <exprResult> expression
 
 %right ASSIGNMENT
+%left OR
+%left AND
 %left EQUALS
 %left SMALLEREQUALS BIGGEREQUALS SMALLER BIGGER
 %left ADDITION SUBTRACTION
 %left MULTIPLICATION DIVISION
-%right EXPONENTIATION
+%right EXPONENTIATION   
 %nonassoc UMINUS 
-
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
+
 
 %start program
 
@@ -235,7 +270,17 @@ simple_stmt:
     | assign_stmt SEMICOLON
     | return_stmt SEMICOLON
     | print_stmt SEMICOLON
-    | expression SEMICOLON
+    | expression SEMICOLON {
+        if (exec_block) {
+            // Executa a expressão apenas se for dentro de bloco válido
+        }
+    }
+
+    | BREAK SEMICOLON {
+    if (exec_block) {
+        // break real ainda não implementado — só evitar erro
+    }
+}
     ;
 
 compound_stmt:
@@ -249,9 +294,40 @@ while_stmt:
     ;
 
 if_stmt:
-    IF LPAREN expression RPAREN block %prec LOWER_THAN_ELSE
-    | IF LPAREN expression RPAREN block ELSE block
+    IF LPAREN expression RPAREN {
+        // Avalia a expressão como condição booleana
+        int condition = 0;
+        if (strcmp($3->type, "bool") == 0) {
+            condition = $3->intVal;
+        } else if (strcmp($3->type, "int") == 0) {
+            condition = ($3->intVal != 0);
+        } else if (strcmp($3->type, "float") == 0) {
+            condition = ($3->doubleVal != 0.0);
+        } else {
+            semantic_error("Condição if deve ser do tipo bool, int ou float, mas foi '%s'.", $3->type);
+        }
+        
+        last_condition_result = condition;
+        exec_block = last_condition_result;
+        free_expression_result($3);
+    } block else_part {
+        exec_block = 1;  // reseta após o if
+    }
     ;
+
+else_part:
+    /* empty */ {
+        // No else clause
+    }
+    | ELSE {
+        exec_block = !last_condition_result;  // ativa o bloco do else se falso
+    } block
+    | ELSE {
+        exec_block = !last_condition_result;  // ativa o bloco do else se falso
+    } if_stmt
+
+
+
 
 for_stmt:
     FOR {
@@ -400,11 +476,12 @@ return_stmt:
     RETURN expression { /* Poderia adicionar verificação de tipo de retorno aqui */ }
     ;
 
-print_stmt:
+print_stmt: 
     PRINT LPAREN print_arg_list RPAREN {
-        print_newline();
+        if (exec_block) print_newline();
     }
-    ;
+    ;// gustavo
+
 
 print_arg_list:
     print_arg
@@ -413,15 +490,8 @@ print_arg_list:
 
 print_arg:
     expression {
-        if ($1 != NULL) {
-            if (strcmp($1->type, "float") == 0) {
-                printf("%f\n", $1->doubleVal);
-            } else if (strcmp($1->type, "string") == 0) {
-                printf("%s\n", $1->strVal);
-            } else if (strcmp($1->type, "int") == 0) {
-                printf("%d\n", $1->intVal);
-            }
-        }
+        if (exec_block) print_value($1);
+        free_expression_result($1);
     }
     ;
 
@@ -435,6 +505,8 @@ assign_stmt:
                 if (!(strcmp($1->elementType, "float") == 0 && strcmp($3->type, "int") == 0)) {
                     semantic_error("Incompatibilidade de tipos: tentativa de atribuir '%s' a elemento de array do tipo '%s'.", 
                                    $3->type, $1->elementType);
+                    free_lvalue_result($1);
+                    free_expression_result($3);
                     YYABORT;
                 }
             }
@@ -442,12 +514,15 @@ assign_stmt:
         } else if ($1->type == LVALUE_VAR) {
             if (find_variable_in_scopes($1->varName) == NULL) {
                 semantic_error("Variável '%s' não declarada.", $1->varName);
+                free_lvalue_result($1);
+                free_expression_result($3);
                 YYABORT;
             } else {
                 // store_variable_value($1->varName, $3);
             }
         }
         free_lvalue_result($1);
+        free_expression_result($3);
     }
     | lvalue INCREMENT {
         if ($1->type == LVALUE_ARRAY_ACCESS) {
@@ -497,7 +572,8 @@ assign_stmt:
         }
         free_lvalue_result($1);
     }
-    ;
+;
+
 
 lvalue:
     ID { 
@@ -811,6 +887,78 @@ expression:
         free_expression_result($3);
         $$ = res;
     }
+    | expression AND expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        res->type = strdup("bool");
+        
+        // Converte para valores booleanos
+        int left = 0, right = 0;
+        if (strcmp($1->type, "bool") == 0) {
+            left = $1->intVal;
+        } else if (strcmp($1->type, "int") == 0) {
+            left = ($1->intVal != 0);
+        } else if (strcmp($1->type, "float") == 0) {
+            left = ($1->doubleVal != 0.0);
+        } else {
+            semantic_error("Operador '&&' inválido para o tipo %s.", $1->type);
+            free(res);
+            YYABORT;
+        }
+        
+        if (strcmp($3->type, "bool") == 0) {
+            right = $3->intVal;
+        } else if (strcmp($3->type, "int") == 0) {
+            right = ($3->intVal != 0);
+        } else if (strcmp($3->type, "float") == 0) {
+            right = ($3->doubleVal != 0.0);
+        } else {
+            semantic_error("Operador '&&' inválido para o tipo %s.", $3->type);
+            free(res);
+            YYABORT;
+        }
+        
+        res->intVal = (left && right);
+        
+        free_expression_result($1);
+        free_expression_result($3);
+        $$ = res;
+    }
+    | expression OR expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        res->type = strdup("bool");
+        
+        // Converte para valores booleanos
+        int left = 0, right = 0;
+        if (strcmp($1->type, "bool") == 0) {
+            left = $1->intVal;
+        } else if (strcmp($1->type, "int") == 0) {
+            left = ($1->intVal != 0);
+        } else if (strcmp($1->type, "float") == 0) {
+            left = ($1->doubleVal != 0.0);
+        } else {
+            semantic_error("Operador '||' inválido para o tipo %s.", $1->type);
+            free(res);
+            YYABORT;
+        }
+        
+        if (strcmp($3->type, "bool") == 0) {
+            right = $3->intVal;
+        } else if (strcmp($3->type, "int") == 0) {
+            right = ($3->intVal != 0);
+        } else if (strcmp($3->type, "float") == 0) {
+            right = ($3->doubleVal != 0.0);
+        } else {
+            semantic_error("Operador '||' inválido para o tipo %s.", $3->type);
+            free(res);
+            YYABORT;
+        }
+        
+        res->intVal = (left || right);
+        
+        free_expression_result($1);
+        free_expression_result($3);
+        $$ = res;
+    }
     | SUBTRACTION expression %prec UMINUS {
         ExpressionResult* res = malloc(sizeof(ExpressionResult));
         if (strcmp($2->type, "int") == 0) {
@@ -836,7 +984,8 @@ expression:
     | LEN LPAREN expression RPAREN {
           ExpressionResult* res = malloc(sizeof(ExpressionResult));
           res->type = strdup("int");
-          res->doubleVal = 0.0; // len não implementado ainda
+          res->intVal = 0; // len não implementado ainda
+          free_expression_result($3);
           $$ = res;
       }
     | LBRACKET list_expression RBRACKET {
@@ -852,8 +1001,14 @@ expression:
 
 
 list_expression:
-    expression                                     { $$ = strdup($1->type); }
-    | list_expression COMMA expression             { $$ = $1; } // Mantém o tipo do primeiro elemento
+    expression                                     { 
+        $$ = strdup($1->type); 
+        free_expression_result($1);
+    }
+    | list_expression COMMA expression             { 
+        $$ = $1; // Mantém o tipo do primeiro elemento
+        free_expression_result($3);
+    }
     ;
 
 arg_list_opt:
@@ -871,7 +1026,7 @@ arg_list:
 void yyerror(const char* s) {
     extern int yylineno;
     fprintf(stderr, "Erro de Sintaxe: erro de sintaxe na linha %d\n", yylineno);
-    syntax_errors++;
+    semantic_errors++; // Use semantic_errors as syntax error counter too for simplicity
 }
 
 int main(int argc, char **argv) {
@@ -893,15 +1048,7 @@ int main(int argc, char **argv) {
     if (parse_result == 0 && semantic_errors == 0) {
         printf("Análise concluída com sucesso. A sintaxe e a semântica estão corretas!\n");
     } else {
-        printf("Falha na análise. Foram encontrados ");
-        
-        if (semantic_errors > 0 && syntax_errors > 0) {
-            printf("%d erros semânticos e %d erros de sintaxe.\n", semantic_errors, syntax_errors);
-        } else if (semantic_errors > 0) {
-            printf("%d erros semânticos.\n", semantic_errors);
-        } else if (syntax_errors > 0) {
-            printf("%d erros de sintaxe.\n", syntax_errors);
-        }
+        printf("Falha na análise. Foram encontrados %d erros.\n", semantic_errors);
     }
 
     print_map(&symbolTable);
