@@ -1,14 +1,31 @@
 fun void main() {
     int: a = 10;
+    // int: a = 20;
+
     int: b = 20;
     int: resultado;
+
+    print("resultado de a+b");
+    print(a + b);
+
+    print("resultado de -a");
+    print(-a);
+
+    
 
     resultado = (a + b) * 2; // expressão com parênteses
 
     bool: condicao = true;
     string: nome = "Penelope";
 
+    // print("resultado de -nome");
+    // print(-nome);
+
     print("Início do for");
+
+    if(b >= a) {
+        print("A variavel a é maior que a varioavel b");
+    }
 
     int: i = 0;
     for(i = 0; i < 3; i++) {

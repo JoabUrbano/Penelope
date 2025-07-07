@@ -10,8 +10,9 @@
 %%
 
 "fun"                { return FUN; }
-(int|float|void|any|string|bool) { yylval.str = strdup(yytext); return TYPE; }
-"true"|"false"       { yylval.str = strdup(yytext); return ID; }
+(int|float|void|string|bool) { yylval.str = strdup(yytext); return TYPE; }
+"true" { yylval.num = 1.0; return BOOL; }
+"false" { yylval.num = 0.0; return BOOL; }
 "while"              { return WHILE; }
 "for"                { return FOR; }
 "if"                 { return IF; }
@@ -44,11 +45,12 @@
 "/"                  { return DIVISION; }
 "+"                  { return ADDITION; }
 "-"                  { return SUBTRACTION; }
+"break"              { return BREAK; }
 "&&"                 { return AND; }
 "||"                 { return OR; }
 
-[0-9]+\.[0-9]+       { yylval.num = atof(yytext); return NUMBER; }
-[0-9]+               { yylval.num = atof(yytext); return NUMBER; }
+[0-9]+\.[0-9]+       { yylval.num = atof(yytext); return FLOAT; }
+[0-9]+               { yylval.num = atoi(yytext); return INT; }
 
 [a-zA-Z_][a-zA-Z0-9_]* { yylval.str = strdup(yytext); return ID; }
 
@@ -63,4 +65,3 @@
 .                    { fprintf(stderr, "Erro Léxico: Caractere inesperado '%s'\n", yytext); exit(1); }
 
 %%
-

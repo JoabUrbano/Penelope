@@ -11,21 +11,50 @@
 #define MAX_SCOPE_DEPTH 100
 char* scopeStack[MAX_SCOPE_DEPTH];
 int scopeTop = -1;
+int exec_block = 1;  // Flag de controle para if/else/while gustavo
 
 HashMap symbolTable = { NULL };
-HashMap valueTable = { NULL };  // Store actual values
 char *currentScope = NULL;
 int semantic_errors = 0; 
+int last_condition_result = 0;  // serve pra lembrar o resultado da condição do IF
+
+
+
+int are_types_compatible(const char* declaredType, const char* exprType) {
+    if (strcmp(declaredType, exprType) == 0) return 1;
+    if ((strcmp(declaredType, "float") == 0 && strcmp(exprType, "int") == 0) ||
+      (strcmp(declaredType, "int") == 0 && strcmp(exprType, "float") == 0)) return 1;
+    return 0;
+}
+
+// Função para extrair o tipo base de um tipo de array (ex: "int[]" -> "int")
+char* get_array_element_type(const char* arrayType) {
+    if (!arrayType || !strstr(arrayType, "[]")) {
+        return NULL; // Não é um tipo de array
+    }
+    
+    char* elementType = malloc(strlen(arrayType));
+    strcpy(elementType, arrayType);
+    
+    // Remove o "[]" do final
+    char* bracket = strstr(elementType, "[]");
+    if (bracket) {
+        *bracket = '\0';
+    }
+    
+    return elementType;
+}
+
 
 void semantic_error(const char* format, ...) {
     extern int yylineno;
     fprintf(stderr, "Erro Semântico na linha %d: ", yylineno);
-    
+
     va_list args;
     va_start(args, format);
-    vfprintf(stderr, format, args);
+    vfprintf(stderr, format, args);  // Imprime a mensagem formatada
     va_end(args);
-    
+
     fprintf(stderr, "\n");
     semantic_errors++;
 }
@@ -62,15 +91,13 @@ double evaluate_number(char *str) {
     return atof(str);
 }
 
-void print_value(double value) {
-    printf("%.6g ", value);  // Print with space, no newline, up to 6 significant digits
-}
+// Function will be defined after struct declarations
 
 void print_string(char *str) {
-    // Remove quotes from string literals
+    // Remove aspas de literais de string
     if (str && str[0] == '"' && str[strlen(str)-1] == '"') {
-        str[strlen(str)-1] = '\0';  // Remove ending quote
-        printf("%s ", str + 1);   // Skip beginning quote, add space
+        str[strlen(str)-1] = '\0';  // Remove aspas finais
+        printf("%s ", str + 1);   // Pula aspas iniciais, adiciona espaço
     } else if (str) {
         printf("%s ", str);
     }
@@ -82,80 +109,6 @@ void print_newline() {
 
 double power_operation(double base, double exponent) {
     return pow(base, exponent);
-}
-
-void store_variable_value(char *name, double value) {
-    char *fullKey = malloc(strlen(currentScope) + strlen(name) + 2);
-    sprintf(fullKey, "%s#%s", currentScope, name);
-    
-    char *valueStr = malloc(32);
-    sprintf(valueStr, "%.10g", value);
-    insert_node(&valueTable, fullKey, valueStr);
-    
-    free(fullKey);
-    free(valueStr);
-}
-
-double get_variable_value(char *name) {
-    for (int i = scopeTop; i >= 0; i--) {
-        char *scope = scopeStack[i];
-        char *fullKey = malloc(strlen(scope) + strlen(name) + 2);
-        sprintf(fullKey, "%s#%s", scope, name);
-
-        Node* node = find_node(&valueTable, fullKey);
-        free(fullKey);
-
-        if (node) {
-            return atof(node->value);
-        }
-    }
-    return 0.0;
-}
-
-char* get_variable_type(char *name) {
-    for (int i = scopeTop; i >= 0; i--) {
-        char *scope = scopeStack[i];
-        char *fullKey = malloc(strlen(scope) + strlen(name) + 2);
-        sprintf(fullKey, "%s#%s", scope, name);
-
-        Node* node = find_node(&symbolTable, fullKey);
-        free(fullKey);
-
-        if (node) {
-            return node->value;  // The type is stored in the value field
-        }
-    }
-    return NULL;
-}
-
-int are_types_compatible(char *type1, char *type2) {
-    if (!type1 || !type2) return 0;
-    
-    // Same types are always compatible
-    if (strcmp(type1, type2) == 0) return 1;
-    
-    // int and float are compatible
-    if ((strcmp(type1, "int") == 0 && strcmp(type2, "float") == 0) ||
-        (strcmp(type1, "float") == 0 && strcmp(type2, "int") == 0)) {
-        return 1;
-    }
-    
-    return 0;  // Other combinations are not compatible
-}
-
-char* get_result_type(char *type1, char *type2) {
-    if (!type1 || !type2) return strdup("any");
-    
-    // If types are the same, return that type
-    if (strcmp(type1, type2) == 0) return strdup(type1);
-    
-    // int + float = float (promotion)
-    if ((strcmp(type1, "int") == 0 && strcmp(type2, "float") == 0) ||
-        (strcmp(type1, "float") == 0 && strcmp(type2, "int") == 0)) {
-        return strdup("float");
-    }
-    
-    return strdup("any");  // For incompatible types
 }
 
 extern int yylex();
@@ -185,25 +138,67 @@ void pop_scope() {
 }
 %}
 
+/* Inclua o header aqui, *fora* do bloco %{...%}, para que o Bison leia a definição do tipo ANTES do %union */
+%code requires {
+    #include "./structs/expression/expressionResult.h"
+    #include "./structs/lvalue/lvalueResult.h"
+}
+
+%code {
+    void print_value(ExpressionResult* expr) {
+        if (!expr) return;
+        
+        if (strcmp(expr->type, "int") == 0) {
+            printf("%d ", expr->intVal);
+        } else if (strcmp(expr->type, "float") == 0) {
+            printf("%.6g ", expr->doubleVal);
+        } else if (strcmp(expr->type, "bool") == 0) {
+            printf("%s ", expr->intVal ? "true" : "false");
+        } else if (strcmp(expr->type, "string") == 0) {
+            // Handle string literals - remove quotes if present
+            if (expr->strVal && expr->strVal[0] == '"' && expr->strVal[strlen(expr->strVal)-1] == '"') {
+                // Create a temporary string without quotes
+                char* temp = strdup(expr->strVal);
+                temp[strlen(temp)-1] = '\0';  // Remove closing quote
+                printf("%s ", temp + 1);      // Skip opening quote
+                free(temp);
+            } else {
+                printf("%s ", expr->strVal ? expr->strVal : "");
+            }
+        } else {
+            printf("unknown ");
+        }
+    }
+}
+
 %union {
     char *str;
     double num;
+    ExpressionResult* exprResult;
+    LValueResult* lvalueResult;
 }
 
+
+%token <num> BOOL
 %token <str> ID TYPE STRING
 %token <num> NUMBER
+%token BREAK
+%token AND 
+%token OR
+
+%token <num> INT FLOAT
 
 %token FUN WHILE FOR IF ELSE LEN PRINT READ RETURN
 %token LBRACKET RBRACKET COMMA LPAREN RPAREN COLON SEMICOLON NEWLINE
 %token ASSIGNMENT EQUALS SMALLEREQUALS BIGGEREQUALS SMALLER BIGGER
 %token INCREMENT DECREMENT EXPONENTIATION MULTIPLICATION DIVISION ADDITION SUBTRACTION
-%token AND OR
 %token LBRACE RBRACE
 
 %define parse.trace
 
-%type <str> lvalue type list_expression
-%type <num> expression
+%type <lvalueResult> lvalue
+%type <str> type list_expression
+%type <exprResult> expression
 
 %right ASSIGNMENT
 %left OR
@@ -212,11 +207,11 @@ void pop_scope() {
 %left SMALLEREQUALS BIGGEREQUALS SMALLER BIGGER
 %left ADDITION SUBTRACTION
 %left MULTIPLICATION DIVISION
-%right EXPONENTIATION
+%right EXPONENTIATION   
 %nonassoc UMINUS 
-
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
+
 
 %start program
 
@@ -238,7 +233,14 @@ decl_or_fun:
     ;
 
 fun:
-    FUN type ID LPAREN list_param_opt RPAREN block
+    FUN type ID LPAREN {
+        // Cria o escopo da função antes de processar parâmetros
+        char *scopeId = uniqueIdentifier();
+        push_scope(scopeId);
+    } list_param_opt RPAREN LBRACE list_stmt RBRACE {
+        // Remove o escopo da função
+        pop_scope();
+    }
     ;
 
 block:
@@ -268,7 +270,16 @@ simple_stmt:
     | return_stmt SEMICOLON
     | print_stmt SEMICOLON
     | read_stmt SEMICOLON
-    | expression SEMICOLON
+    | expression SEMICOLON {
+        if (exec_block) {
+            // Executa a expressão apenas se for dentro de bloco válido
+        }
+    }
+    | BREAK SEMICOLON {
+        if (exec_block) {
+            // break real ainda não implementado — só evitar erro
+        }
+    }
     ;
 
 compound_stmt:
@@ -282,9 +293,40 @@ while_stmt:
     ;
 
 if_stmt:
-    IF LPAREN expression RPAREN block %prec LOWER_THAN_ELSE
-    | IF LPAREN expression RPAREN block ELSE block
+    IF LPAREN expression RPAREN {
+        // Avalia a expressão como condição booleana
+        int condition = 0;
+        if (strcmp($3->type, "bool") == 0) {
+            condition = $3->intVal;
+        } else if (strcmp($3->type, "int") == 0) {
+            condition = ($3->intVal != 0);
+        } else if (strcmp($3->type, "float") == 0) {
+            condition = ($3->doubleVal != 0.0);
+        } else {
+            semantic_error("Condição if deve ser do tipo bool, int ou float, mas foi '%s'.", $3->type);
+        }
+        
+        last_condition_result = condition;
+        exec_block = last_condition_result;
+        free_expression_result($3);
+    } block else_part {
+        exec_block = 1;  // reseta após o if
+    }
     ;
+
+else_part:
+    /* empty */ {
+        // No else clause
+    }
+    | ELSE {
+        exec_block = !last_condition_result;  // ativa o bloco do else se falso
+    } block
+    | ELSE {
+        exec_block = !last_condition_result;  // ativa o bloco do else se falso
+    } if_stmt
+
+
+
 
 for_stmt:
     FOR {
@@ -302,34 +344,98 @@ for_init:
     ;
 
 decl:
-      type COLON ID {
-          // Verifica declaração duplicada no escopo atual
-          if (find_variable_in_current_scope($3) != NULL) {
+      | type COLON ID {
+         if (find_variable_in_current_scope($3) != NULL) {
               semantic_error("Variável '%s' já declarada no escopo atual.", $3);
-          } else {
-              char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
-              sprintf(fullKey, "%s#%s", currentScope, $3);
-              insert_node(&symbolTable, fullKey, $1);
-              store_variable_value($3, 0.0); // Inicializa com 0
-              free(fullKey);
+              YYABORT;
           }
-      }
+
+
+        // Cria chave completa com escopo: "escopo#variavel"
+        char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
+        
+        if (!fullKey) {
+            semantic_error("Erro de alocação de memória para chave do símbolo.\n");
+
+            YYABORT;
+        }
+        
+
+        sprintf(fullKey, "%s#%s", currentScope, $3);
+
+        Data data;
+
+        data.type = strdup($1);
+
+        insert_node(&symbolTable, fullKey, data);
+
+        free(fullKey);
+    }
     | type COLON ID ASSIGNMENT expression {
-          // Verifica declaração duplicada no escopo atual
-          if (find_variable_in_current_scope($3) != NULL) {
+        if (find_variable_in_current_scope($3) != NULL) {
               semantic_error("Variável '%s' já declarada no escopo atual.", $3);
-          } else {
-              char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
-              sprintf(fullKey, "%s#%s", currentScope, $3);
-              insert_node(&symbolTable, fullKey, $1);
-              store_variable_value($3, $5); // Armazena o valor calculado
-              free(fullKey);
-          }
-      }
+              YYABORT;
+        }
+        
+        char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
+        if (!fullKey) {
+            semantic_error("Erro de alocação de memória para chave.\n");
+            YYABORT;
+        }
+        sprintf(fullKey, "%s#%s", currentScope, $3);
+
+        // CORREÇÃO: $1 é uma string, não struct com campo .type
+        if (!are_types_compatible($1, $5->type)) {
+            free(fullKey);
+            semantic_error("Tipo incompatível: a variável de tipo %s não pode receber o tipo %s\n", $1, $5->type);
+            YYABORT;
+        }
+
+        Data newData;
+        newData.type = strdup($1);
+        
+        if (strcmp($1, "int") == 0) {
+            newData.value.intVal = $5->intVal;
+        } else if (strcmp($1, "float") == 0) {
+            newData.value.doubleVal = $5->doubleVal;
+        } else if (strcmp($1, "bool") == 0) {
+            newData.value.intVal = $5->intVal;
+        } else if (strcmp($1, "string") == 0) {
+            newData.value.strVal = $5->strVal;
+        } else if (strstr($1, "[]") != NULL) {
+            // Tipos de array - armazena um valor padrão por enquanto
+            newData.value.intVal = 0; // Valor temporário para arrays
+        } else {
+            free(fullKey);
+            semantic_error("Tipo '%s' não suportado para atribuição.\n", $1);
+            YYABORT;
+        }
+
+        printf("Inserido no symbolTable: %s com tipo %s e valor ", fullKey, newData.type);
+        if (strcmp(newData.type, "int") == 0) {
+            printf("%d\n", newData.value.intVal);
+        } else if (strcmp(newData.type, "float") == 0) {
+            printf("%f\n", newData.value.doubleVal);
+        } else if (strcmp(newData.type, "bool") == 0) {
+            printf("%d\n", newData.value.intVal);
+        } else if (strcmp(newData.type, "string") == 0) {
+            printf("%s\n", newData.value.strVal ? newData.value.strVal : "(null)");
+        } else if (strstr(newData.type, "[]") != NULL) {
+            printf("array\n");
+        } else {
+            printf("unknown\n");
+        }
+        
+        insert_node(&symbolTable, fullKey, newData);
+
+        free(newData.type); // insert_node já faz cópia
+        free(fullKey);
+    }
+
     ;
 
 type:
-    TYPE                                { $$ = $1; }
+    TYPE                                { $$ = $1;}
     | TYPE LBRACKET RBRACKET            { 
                                             char *array_type = malloc(strlen($1) + 3);
                                             sprintf(array_type, "%s[]", $1);
@@ -360,28 +466,50 @@ list_param:
     ;
 
 param:
-    type COLON ID
+    type COLON ID {
+        // Adiciona o parâmetro à tabela de símbolos no escopo atual da função
+        if (find_variable_in_current_scope($3) != NULL) {
+            semantic_error("Parâmetro '%s' já declarado na função.", $3);
+        } else {
+            char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
+            sprintf(fullKey, "%s#%s", currentScope, $3);
+            
+            Data data;
+            data.type = strdup($1);
+            
+            insert_node(&symbolTable, fullKey, data);
+            free(fullKey);
+        }
+    }
     ;
 
 return_stmt:
     RETURN expression { /* Poderia adicionar verificação de tipo de retorno aqui */ }
     ;
 
-print_stmt:
+print_stmt: 
     PRINT LPAREN print_arg_list RPAREN {
-        print_newline();
+        if (exec_block) print_newline();
     }
-    ;
+    ;// gustavo
+
 
 read_stmt:
     READ LPAREN lvalue RPAREN {
         // Verificação semântica: variável deve estar declarada
-        if ($3 && strcmp($3, "array_access") != 0) {
-            if (find_variable_in_scopes($3) == NULL) {
-                semantic_error("Variável '%s' não declarada.", $3);
+        if ($3->type == LVALUE_ARRAY_ACCESS) {
+            // Para acesso a array, verifica se a variável base existe
+            if (find_variable_in_scopes($3->varName) == NULL) {
+                semantic_error("Variável '%s' não declarada.", $3->varName);
+            }
+            // Simula leitura para elemento de array
+        } else if ($3->type == LVALUE_VAR) {
+            if (find_variable_in_scopes($3->varName) == NULL) {
+                semantic_error("Variável '%s' não declarada.", $3->varName);
             }
             // Simula leitura (não implementada completamente)
         }
+        free_lvalue_result($3);
     }
     ;
 
@@ -392,97 +520,525 @@ print_arg_list:
 
 print_arg:
     expression {
-        print_value($1);
-    }
-    | STRING {
-        print_string($1);
+        if (exec_block) print_value($1);
+        free_expression_result($1);
     }
     ;
 
 assign_stmt:
     lvalue ASSIGNMENT expression {
         // Verifica se a variável do lvalue foi declarada antes de atribuir
-        if ($1 && strcmp($1, "array_access") != 0) {
-            if (find_variable_in_scopes($1) == NULL) {
-                semantic_error("Variável '%s' não declarada.", $1);
+        if ($1->type == LVALUE_ARRAY_ACCESS) {
+            // Acesso a array - verifica compatibilidade de tipos
+            if (strcmp($1->elementType, $3->type) != 0) {
+                // Permite conversão implícita de int para float
+                if (!(strcmp($1->elementType, "float") == 0 && strcmp($3->type, "int") == 0)) {
+                    semantic_error("Incompatibilidade de tipos: tentativa de atribuir '%s' a elemento de array do tipo '%s'.", 
+                                   $3->type, $1->elementType);
+                    free_lvalue_result($1);
+                    free_expression_result($3);
+                    YYABORT;
+                }
+            }
+            // TODO: Implementar armazenamento real de valores em arrays
+        } else if ($1->type == LVALUE_VAR) {
+            if (find_variable_in_scopes($1->varName) == NULL) {
+                semantic_error("Variável '%s' não declarada.", $1->varName);
+                free_lvalue_result($1);
+                free_expression_result($3);
+                YYABORT;
             } else {
-                store_variable_value($1, $3);
+                // store_variable_value($1->varName, $3);
             }
         }
+        free_lvalue_result($1);
+        free_expression_result($3);
     }
     | lvalue INCREMENT {
-        if ($1 && strcmp($1, "array_access") != 0) {
-            if (find_variable_in_scopes($1) == NULL) {
-                semantic_error("Variável '%s' não declarada.", $1);
+        if ($1->type == LVALUE_ARRAY_ACCESS) {
+            // Incremento em elemento de array
+            if (strcmp($1->elementType, "int") != 0 && strcmp($1->elementType, "float") != 0) {
+                semantic_error("Não é possível usar o operador ++ para elementos de array do tipo '%s'.", $1->elementType);
+                YYABORT;
+            }
+            // TODO: Implementar incremento real em elementos de array
+        } else if ($1->type == LVALUE_VAR) {
+            Node* node = find_variable_in_scopes($1->varName);
+
+            if (node == NULL) {
+                semantic_error("Variável '%s' não declarada.", $1->varName);
+                YYABORT;
             } else {
-                double current = get_variable_value($1);
-                store_variable_value($1, current + 1.0);
+                char* type = node->value.type;
+
+                if (strcmp(type, "int") != 0 && strcmp(type, "float") != 0) {
+                    semantic_error("Não é possível usar o operador ++ para tipos que não sejam int e float\n");
+                    YYABORT;
+                } else if (strcmp(type, "int") == 0) {
+                    node->value.value.intVal += 1;
+                } else if (strcmp(type, "float") == 0) {
+                    node->value.value.doubleVal += 1.0;
+                }
             }
         }
+        free_lvalue_result($1);
     }
     | lvalue DECREMENT {
-        if ($1 && strcmp($1, "array_access") != 0) {
-             if (find_variable_in_scopes($1) == NULL) {
-                semantic_error("Variável '%s' não declarada.", $1);
+        if ($1->type == LVALUE_ARRAY_ACCESS) {
+            // Decremento em elemento de array
+            if (strcmp($1->elementType, "int") != 0 && strcmp($1->elementType, "float") != 0) {
+                semantic_error("Não é possível usar o operador -- para elementos de array do tipo '%s'.", $1->elementType);
+                YYABORT;
+            }
+            // TODO: Implementar decremento real em elementos de array
+        } else if ($1->type == LVALUE_VAR) {
+             if (find_variable_in_scopes($1->varName) == NULL) {
+                semantic_error("Variável '%s' não declarada.", $1->varName);
+                YYABORT;
             } else {
-                double current = get_variable_value($1);
-                store_variable_value($1, current - 1.0);
+                // double current = get_variable_value($1->varName);
+                // store_variable_value($1->varName, current - 1.0);
             }
         }
+        free_lvalue_result($1);
     }
-    ;
+;
+
 
 lvalue:
     ID { 
-        $$ = $1; 
-        // A verificação é feita no contexto (assign_stmt ou expression)
+        $$ = create_lvalue_var($1);
     }
     | lvalue LBRACKET expression RBRACKET { 
-        $$ = strdup("array_access"); 
+        // Para acesso a array, verifica se o lvalue é um array e retorna o tipo do elemento
+        
+        // Se o lvalue já é um array_access, não podemos fazer double indexing nesta implementação
+        if ($1->type == LVALUE_ARRAY_ACCESS) {
+            semantic_error("Acesso multidimensional a arrays não é suportado nesta versão.");
+            YYABORT;
+        }
+        
+        Node* arrayNode = find_variable_in_scopes($1->varName);
+        if (!arrayNode) {
+            semantic_error("Variável '%s' não declarada.", $1->varName);
+            YYABORT;
+        }
+        
+        if (!strstr(arrayNode->value.type, "[]")) {
+            semantic_error("Tentativa de indexar uma variável que não é um array: '%s'.", $1->varName);
+            YYABORT;
+        }
+        
+        // Verifica se o índice é um tipo válido (int)
+        if (strcmp($3->type, "int") != 0) {
+            semantic_error("Índice de array deve ser do tipo int, mas foi '%s'.", $3->type);
+            YYABORT;
+        }
+        
+        // Cria um resultado de array access com o tipo do elemento
+        char* elementType = get_array_element_type(arrayNode->value.type);
+        $$ = create_lvalue_array_access($1->varName, elementType);
+        free(elementType);
+        free_lvalue_result($1); // Libera o lvalue anterior
     }
     ;
 
 expression:
-    NUMBER                                         { $$ = $1; }
-    | STRING                                       { $$ = 0.0; /* Literais string retornam 0 para avaliação numérica */ }
+    BOOL {
+        ExpressionResult* result = malloc(sizeof(ExpressionResult));
+        result->type = strdup("bool");
+        result->intVal = $1;
+        $$ = result;
+    }
+    | INT {
+        ExpressionResult* result = malloc(sizeof(ExpressionResult));
+        result->type = strdup("int");
+        result->intVal = $1;
+        $$ = result;
+    }
+    | FLOAT {
+        ExpressionResult* result = malloc(sizeof(ExpressionResult));
+        result->type = strdup("float");
+        result->doubleVal = $1;
+        $$ = result;
+    }
+    | STRING {
+          ExpressionResult* result = malloc(sizeof(ExpressionResult));
+          result->type = strdup("string");
+          result->strVal = strdup($1);
+          $$ = result;
+      }
     | lvalue {
-        if ($1 && strcmp($1, "array_access") != 0) {
-            // VERIFICAÇÃO SEMÂNTICA AQUI
-            if (find_variable_in_scopes($1) == NULL) {
-                semantic_error("Variável '%s' não declarada.", $1);
-                $$ = 0.0; // Retorna um valor padrão para continuar a análise
+        ExpressionResult* result = malloc(sizeof(ExpressionResult));
+        
+        if ($1->type == LVALUE_ARRAY_ACCESS) {
+            // Manipula acesso a array - usa o tipo do elemento especificado
+            result->type = strdup($1->elementType);
+            
+            // Define valores padrão baseados no tipo do elemento
+            if (strcmp($1->elementType, "int") == 0) {
+                result->intVal = 0;
+            } else if (strcmp($1->elementType, "float") == 0) {
+                result->doubleVal = 0.0;
+            } else if (strcmp($1->elementType, "bool") == 0) {
+                result->intVal = 0; // false
+            } else if (strcmp($1->elementType, "string") == 0) {
+                result->strVal = strdup("");
             } else {
-                $$ = get_variable_value($1);
+                semantic_error("Tipo de elemento de array não suportado: '%s'.", $1->elementType);
+                free(result);
+                free_lvalue_result($1);
+                YYABORT;
             }
-        } else {
-            $$ = 0.0; // Valor padrão para acesso a array (ainda não implementado)
+        } else if ($1->type == LVALUE_VAR) {
+            Node* varNode = find_variable_in_scopes($1->varName);
+            
+            if (!varNode) {
+                semantic_error("Variável '%s' não declarada.", $1->varName);
+                free(result);
+                free_lvalue_result($1);
+                YYABORT;
+            } else {
+                result->type = strdup(varNode->value.type);
+
+            if (strcmp(varNode->value.type, "int") == 0) {
+                result->intVal = varNode->value.value.intVal;
+            } else if (strcmp(varNode->value.type, "float") == 0) {
+                result->doubleVal = varNode->value.value.doubleVal;
+            } else if (strcmp(varNode->value.type, "bool") == 0) {
+                result->intVal = varNode->value.value.intVal;
+            } else if (strcmp(varNode->value.type, "string") == 0) {
+                result->strVal = strdup(varNode->value.value.strVal);
+            } else if (strstr(varNode->value.type, "[]") != NULL) {
+                // Tipos de array são suportados - define valor padrão por enquanto
+                result->intVal = 0; // Arrays avaliam para 0 por enquanto (valor temporário)
+            } else {
+                semantic_error("Tipo '%s' não suportado em expressões.", varNode->value.type);
+                free(result);
+                free_lvalue_result($1);
+                YYABORT;
+            }
+            }
         }
+
+        free_lvalue_result($1);
+        $$ = result;
     }
-    | LPAREN expression RPAREN                     { $$ = $2; }
-    | expression ADDITION expression               { 
-        // Verificação básica de tipos para adição - pode ser melhorada depois
-        $$ = $1 + $3; 
+    | LPAREN expression RPAREN {
+          $$ = $2;
+      }
+    | expression ADDITION expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        
+        if (strcmp($1->type, "float") == 0 || strcmp($3->type, "float") == 0) {
+            res->type = strdup("float");
+
+            double leftVal = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
+            double rightVal = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
+
+            res->doubleVal = leftVal + rightVal;
+
+        } else if (strcmp($1->type, "int") == 0 && strcmp($3->type, "int") == 0) {
+            res->type = strdup("int");
+            res->intVal = $1->intVal + $3->intVal;
+        } else {
+            // Caso tipos inesperados, força float como fallback
+            res->type = strdup("float");
+            res->doubleVal = 0.0;
+            // Poderia emitir erro aqui, se quiser
+        }
+
+        free_expression_result($1);
+        free_expression_result($3);
+
+        $$ = res;
     }
-    | expression SUBTRACTION expression            { $$ = $1 - $3; }
-    | expression MULTIPLICATION expression         { $$ = $1 * $3; }
-    | expression DIVISION expression               { $$ = $1 / $3; }
-    | expression EXPONENTIATION expression         { $$ = power_operation($1, $3); }
-    | expression SMALLER expression                { $$ = ($1 < $3) ? 1.0 : 0.0; }
-    | expression BIGGER expression                 { $$ = ($1 > $3) ? 1.0 : 0.0; }
-    | expression SMALLEREQUALS expression          { $$ = ($1 <= $3) ? 1.0 : 0.0; }
-    | expression BIGGEREQUALS expression           { $$ = ($1 >= $3) ? 1.0 : 0.0; }
-    | expression EQUALS expression                 { $$ = ($1 == $3) ? 1.0 : 0.0; }
-    | expression AND expression                    { $$ = ($1 != 0.0 && $3 != 0.0) ? 1.0 : 0.0; }
-    | expression OR expression                     { $$ = ($1 != 0.0 || $3 != 0.0) ? 1.0 : 0.0; }
-    | SUBTRACTION expression %prec UMINUS          { $$ = -$2; }
-    | ID LPAREN arg_list_opt RPAREN                { $$ = 0.0; /* Chamadas de função ainda não implementadas */ }
-    | LEN LPAREN expression RPAREN                 { $$ = 0.0; /* len() ainda não implementado */ }
-    | LBRACKET list_expression RBRACKET            { $$ = 0.0; /* Literais de array ainda não implementados */ }
+    | expression SUBTRACTION expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        
+        if (strcmp($1->type, "float") == 0 || strcmp($3->type, "float") == 0) {
+            res->type = strdup("float");
+
+            double leftVal = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
+            double rightVal = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
+
+            res->doubleVal = leftVal - rightVal;
+
+        } else if (strcmp($1->type, "int") == 0 && strcmp($3->type, "int") == 0) {
+            res->type = strdup("int");
+            res->intVal = $1->intVal - $3->intVal;
+        } else {
+            // Caso tipos inesperados, força float como fallback
+            res->type = strdup("float");
+            res->doubleVal = 0.0;
+            // Poderia emitir erro aqui, se quiser
+        }
+
+        free_expression_result($1);
+        free_expression_result($3);
+
+        $$ = res;
+      }
+    | expression MULTIPLICATION expression {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("float");
+          res->doubleVal = $1->doubleVal * $3->doubleVal;
+          $$ = res;
+          free_expression_result($1);
+          free_expression_result($3);
+      }
+    | expression DIVISION expression {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("float");
+          if ($3->doubleVal == 0) {
+              semantic_error("Divisão por zero.", "");
+              YYABORT;
+          } else {
+              res->doubleVal = $1->doubleVal / $3->doubleVal;
+          }
+          $$ = res;
+          free_expression_result($1);
+          free_expression_result($3);
+      }
+    | expression EXPONENTIATION expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        res->type = strdup("float");
+
+        double left = strcmp($1->type, "int") == 0 ? (double)$1->intVal : $1->doubleVal;
+        double right = strcmp($3->type, "int") == 0 ? (double)$3->intVal : $3->doubleVal;
+
+        res->doubleVal = power_operation(left, right);
+
+        $$ = res;
+        free_expression_result($1);
+        free_expression_result($3);
+      }
+    | expression SMALLER expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        res->type = strdup("bool");
+        
+        if (!are_types_compatible($1->type, $3->type) || strcmp($1->type, "string") == 0) {
+             semantic_error("Operador '<' inválido entre os tipos %s e %s.", $1->type, $3->type);
+             free(res);
+             YYABORT;
+        }
+
+        double left = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
+        double right = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
+        
+        res->intVal = (left < right);
+        
+        free_expression_result($1);
+        free_expression_result($3);
+        $$ = res;
+    }
+    | expression BIGGER expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        res->type = strdup("bool");
+        
+        if (!are_types_compatible($1->type, $3->type) || strcmp($1->type, "string") == 0) {
+             semantic_error("Operador '>' inválido entre os tipos %s e %s.", $1->type, $3->type);
+             free(res);
+             YYABORT;
+        }
+
+        double left = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
+        double right = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
+        
+        res->intVal = (left > right);
+        
+        free_expression_result($1);
+        free_expression_result($3);
+        $$ = res;
+    }
+    | expression SMALLEREQUALS expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        res->type = strdup("bool");
+        
+        if (!are_types_compatible($1->type, $3->type) || strcmp($1->type, "string") == 0) {
+             semantic_error("Operador '<=' inválido entre os tipos %s e %s.", $1->type, $3->type);
+             free(res);
+             YYABORT;
+        }
+
+        double left = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
+        double right = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
+        
+        res->intVal = (left <= right);
+        
+        free_expression_result($1);
+        free_expression_result($3);
+        $$ = res;
+    }
+    | expression BIGGEREQUALS expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        res->type = strdup("bool");
+        
+        if (!are_types_compatible($1->type, $3->type) || strcmp($1->type, "string") == 0) {
+             semantic_error("Operador '>=' inválido entre os tipos %s e %s.", $1->type, $3->type);
+             free(res);
+             YYABORT;
+        }
+
+        double left = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
+        double right = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
+        
+        res->intVal = (left >= right);
+        
+        free_expression_result($1);
+        free_expression_result($3);
+        $$ = res;
+    }
+    | expression EQUALS expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        res->type = strdup("bool");
+        int result = 0;
+
+        // Caso 1: Comparação de strings
+        if (strcmp($1->type, "string") == 0 && strcmp($3->type, "string") == 0) {
+            result = (strcmp($1->strVal, $3->strVal) == 0);
+        } 
+        
+        // Caso 2: Comparação de tipos numéricos compatíveis
+        else if (are_types_compatible($1->type, $3->type)) {
+            double left = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
+            double right = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
+            result = (left == right);
+        } 
+        // Caso 3: Tipos incompatíveis
+        else {
+            semantic_error("Operador '==' inválido entre os tipos %s e %s.", $1->type, $3->type);
+            free(res);
+            YYABORT;
+        }
+
+        res->intVal = result;
+        free_expression_result($1);
+        free_expression_result($3);
+        $$ = res;
+    }
+    | expression AND expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        res->type = strdup("bool");
+        
+        // Converte para valores booleanos
+        int left = 0, right = 0;
+        if (strcmp($1->type, "bool") == 0) {
+            left = $1->intVal;
+        } else if (strcmp($1->type, "int") == 0) {
+            left = ($1->intVal != 0);
+        } else if (strcmp($1->type, "float") == 0) {
+            left = ($1->doubleVal != 0.0);
+        } else {
+            semantic_error("Operador '&&' inválido para o tipo %s.", $1->type);
+            free(res);
+            YYABORT;
+        }
+        
+        if (strcmp($3->type, "bool") == 0) {
+            right = $3->intVal;
+        } else if (strcmp($3->type, "int") == 0) {
+            right = ($3->intVal != 0);
+        } else if (strcmp($3->type, "float") == 0) {
+            right = ($3->doubleVal != 0.0);
+        } else {
+            semantic_error("Operador '&&' inválido para o tipo %s.", $3->type);
+            free(res);
+            YYABORT;
+        }
+        
+        res->intVal = (left && right);
+        
+        free_expression_result($1);
+        free_expression_result($3);
+        $$ = res;
+    }
+    | expression OR expression {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        res->type = strdup("bool");
+        
+        // Converte para valores booleanos
+        int left = 0, right = 0;
+        if (strcmp($1->type, "bool") == 0) {
+            left = $1->intVal;
+        } else if (strcmp($1->type, "int") == 0) {
+            left = ($1->intVal != 0);
+        } else if (strcmp($1->type, "float") == 0) {
+            left = ($1->doubleVal != 0.0);
+        } else {
+            semantic_error("Operador '||' inválido para o tipo %s.", $1->type);
+            free(res);
+            YYABORT;
+        }
+        
+        if (strcmp($3->type, "bool") == 0) {
+            right = $3->intVal;
+        } else if (strcmp($3->type, "int") == 0) {
+            right = ($3->intVal != 0);
+        } else if (strcmp($3->type, "float") == 0) {
+            right = ($3->doubleVal != 0.0);
+        } else {
+            semantic_error("Operador '||' inválido para o tipo %s.", $3->type);
+            free(res);
+            YYABORT;
+        }
+        
+        res->intVal = (left || right);
+        
+        free_expression_result($1);
+        free_expression_result($3);
+        $$ = res;
+    }
+    | SUBTRACTION expression %prec UMINUS {
+        ExpressionResult* res = malloc(sizeof(ExpressionResult));
+        if (strcmp($2->type, "int") == 0) {
+            res->type = strdup("int");
+            res->intVal = -$2->intVal;
+        } else if (strcmp($2->type, "float") == 0) {
+            res->type = strdup("float");
+            res->doubleVal = -$2->doubleVal;
+        } else {
+            semantic_error("Operador unário '-' inválido para o tipo %s.", $2->type);
+            free(res);
+            YYABORT;
+        }
+        free_expression_result($2);
+        $$ = res;
+    }
+    | ID LPAREN arg_list_opt RPAREN {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("float");
+          res->doubleVal = 0.0; // Função não implementada ainda
+          $$ = res;
+      }
+    | LEN LPAREN expression RPAREN {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          res->type = strdup("int");
+          res->intVal = 0; // len não implementado ainda
+          free_expression_result($3);
+          $$ = res;
+      }
+    | LBRACKET list_expression RBRACKET {
+          ExpressionResult* res = malloc(sizeof(ExpressionResult));
+          // Determina o tipo do array baseado no primeiro elemento
+          char* arrayType = malloc(strlen($2) + 3);
+          sprintf(arrayType, "%s[]", $2);
+          res->type = arrayType;
+          res->intVal = 0; // Valor temporário para literais de array
+          $$ = res;
+      }
     ;
 
+
 list_expression:
-    expression                                     { $$ = strdup("array_element"); }
-    | list_expression COMMA expression             { $$ = strdup("array_list"); }
+    expression                                     { 
+        $$ = strdup($1->type); 
+        free_expression_result($1);
+    }
+    | list_expression COMMA expression             { 
+        $$ = $1; // Mantém o tipo do primeiro elemento
+        free_expression_result($3);
+    }
     ;
 
 arg_list_opt:
@@ -499,7 +1055,8 @@ arg_list:
 
 void yyerror(const char* s) {
     extern int yylineno;
-    fprintf(stderr, "Erro de Sintaxe: %s na linha %d\n", s, yylineno);
+    fprintf(stderr, "Erro de Sintaxe: erro de sintaxe na linha %d\n", yylineno);
+    semantic_errors++; // Use semantic_errors as syntax error counter too for simplicity
 }
 
 int main(int argc, char **argv) {
@@ -516,10 +1073,12 @@ int main(int argc, char **argv) {
 
     push_scope(strdup("global"));
 
-    if (yyparse() == 0 && semantic_errors == 0) {
+    int parse_result = yyparse();
+    
+    if (parse_result == 0 && semantic_errors == 0) {
         printf("Análise concluída com sucesso. A sintaxe e a semântica estão corretas!\n");
     } else {
-        printf("Falha na análise. Foram encontrados %d erros semânticos e/ou erros de sintaxe.\n", semantic_errors);
+        printf("Falha na análise. Foram encontrados %d erros.\n", semantic_errors);
     }
 
     print_map(&symbolTable);
@@ -528,7 +1087,6 @@ int main(int argc, char **argv) {
     pop_scope(); 
 
     free_map(&symbolTable);
-    free_map(&valueTable);
 
-    return (semantic_errors > 0);
+    return (parse_result != 0 || semantic_errors > 0) ? 1 : 0;
 }
