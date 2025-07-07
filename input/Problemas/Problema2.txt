@@ -1,41 +1,50 @@
 fun void main() {
-    int[]: entradas = [15, 32, 77, 100, 49, 3, -1];  // simula entrada do usuário
-
-    int: i = 0;
     int: faixa1 = 0;  // [0, 25]
     int: faixa2 = 0;  // [26, 50]
     int: faixa3 = 0;  // [51, 75]
     int: faixa4 = 0;  // [76, 100]
     int: atual;
-    if(true){
-        print("Isso deve executar");
-    }
-    if(false){
-        print("Isso não deve executar");
-    }
+    
+    print("Digite números para classificar nas faixas:\n");
+    print("[0-25], [26-50], [51-75], [76-100]\n");
+    print("Digite um número negativo para terminar.\n");
+    print("\n");
 
-    while(i < len(entradas)) {
-        atual = entradas[i];
+    while(true) {
+        print("Digite um número: ");
+        read(atual);
 
         if(atual < 0) {
+            print("Número negativo detectado. Encerrando programa...\n");
             break;
         }
 
         if(atual >= 0 && atual <= 25) {
             faixa1++;
-        } else if(atual >= 26 && atual <= 50) {
-            faixa2++;
-        } else if(atual >= 51 && atual <= 75) {
-            faixa3++;
-        } else if(atual >= 76 && atual <= 100) {
-            faixa4++;
+            print("Número ", atual, " classificado na faixa [0-25]\n");
+        } else {
+            if(atual >= 26 && atual <= 50) {
+                faixa2++;
+                print("Número ", atual, " classificado na faixa [26-50]\n");
+            } else {
+                if(atual >= 51 && atual <= 75) {
+                    faixa3++;
+                    print("Número ", atual, " classificado na faixa [51-75]\n");
+                } else {
+                    if(atual >= 76 && atual <= 100) {
+                        faixa4++;
+                        print("Número ", atual, " classificado na faixa [76-100]\n");
+                    } else {
+                        print("Número ", atual, " está fora das faixas válidas [0-100]\n");
+                    }
+                }
+            }
         }
-
-        i++;
     }
 
-    print("Valores no intervalo [0, 25]:", faixa1);
-    print("Valores no intervalo [26, 50]:", faixa2);
-    print("Valores no intervalo [51, 75]:", faixa3);
-    print("Valores no intervalo [76, 100]:", faixa4);
+    print("\nRESULTADOS FINAIS: \n");
+    print("Valores no intervalo [0, 25]: ", faixa1, "\n");
+    print("Valores no intervalo [26, 50]: ", faixa2, "\n");
+    print("Valores no intervalo [51, 75]: ", faixa3, "\n");
+    print("Valores no intervalo [76, 100]: ", faixa4, "\n");
 }

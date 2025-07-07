@@ -36,6 +36,9 @@ int is_matrix_element_print = 0;  // Flag para detectar impressão de elementos 
 int has_explicit_newline = 0;     // Flag para detectar quebras de linha explícitas
 int last_print_arg_count = 0;     // Contador de argumentos no último print
 
+// Controle de loops para break/continue
+int current_loop_exit_label = -1;  // Label de saída do loop atual para break
+
 
 
 int are_types_compatible(const char* declaredType, const char* exprType) {
@@ -500,6 +503,15 @@ simple_stmt:
         if (exec_block) {
             // break real ainda não implementado — só evitar erro
         }
+        
+        // Gera código C para break
+        if (generate_code) {
+            if (current_loop_exit_label != -1) {
+                emit_line("goto L%d;", current_loop_exit_label);
+            } else {
+                semantic_error("break statement fora de um loop.");
+            }
+        }
     }
     ;
 
@@ -516,6 +528,9 @@ while_stmt:
             emit_line("goto L%d;", $1);  // Volta para testar a condição
             emit_line("L%d:", $1 + 1);   // Label de saída do while
         }
+        
+        // Limpa o controle de loop
+        current_loop_exit_label = -1;
         
         // Após executar o bloco uma vez, reseta o controle de execução
         exec_block = 1;
@@ -539,6 +554,9 @@ while_start:
         // Gera código C para while usando goto
         int start_label = generate_label();
         int end_label = generate_label();
+        
+        // Define o label de saída para break statements
+        current_loop_exit_label = end_label;
         
         if (generate_code) {
             emit_line("L%d:", start_label);  // Label de início do loop
@@ -1509,6 +1527,14 @@ expression:
              YYABORT;
         }
 
+        // Gera código C para comparação
+        if ($1->c_code && $3->c_code) {
+            res->c_code = malloc(strlen($1->c_code) + strlen($3->c_code) + 10);
+            snprintf(res->c_code, strlen($1->c_code) + strlen($3->c_code) + 10, "(%s > %s)", $1->c_code, $3->c_code);
+        } else {
+            res->c_code = strdup("(0 > 0)"); // fallback
+        }
+
         double left = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
         double right = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
         
@@ -1528,6 +1554,14 @@ expression:
              YYABORT;
         }
 
+        // Gera código C para comparação
+        if ($1->c_code && $3->c_code) {
+            res->c_code = malloc(strlen($1->c_code) + strlen($3->c_code) + 10);
+            snprintf(res->c_code, strlen($1->c_code) + strlen($3->c_code) + 10, "(%s <= %s)", $1->c_code, $3->c_code);
+        } else {
+            res->c_code = strdup("(0 <= 0)"); // fallback
+        }
+
         double left = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
         double right = (strcmp($3->type, "int") == 0) ? (double)$3->intVal : $3->doubleVal;
         
@@ -1545,6 +1579,14 @@ expression:
              semantic_error("Operador '>=' inválido entre os tipos %s e %s.", $1->type, $3->type);
              free(res);
              YYABORT;
+        }
+
+        // Gera código C para comparação
+        if ($1->c_code && $3->c_code) {
+            res->c_code = malloc(strlen($1->c_code) + strlen($3->c_code) + 10);
+            snprintf(res->c_code, strlen($1->c_code) + strlen($3->c_code) + 10, "(%s >= %s)", $1->c_code, $3->c_code);
+        } else {
+            res->c_code = strdup("(0 >= 0)"); // fallback
         }
 
         double left = (strcmp($1->type, "int") == 0) ? (double)$1->intVal : $1->doubleVal;
