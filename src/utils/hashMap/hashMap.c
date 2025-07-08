@@ -25,10 +25,14 @@ Data copy_data(Data src) {
 
 // Libera a memória interna de um Data
 void free_data(Data data) {
+    // Check string type before freeing the type pointer
+    int is_string = (data.type != NULL && strcmp(data.type, "string") == 0);
+    
     if (data.type != NULL) {
         free(data.type);
     }
-    if (strcmp(data.type, "string") == 0 && data.value.strVal != NULL) {
+    
+    if (is_string && data.value.strVal != NULL) {
         free(data.value.strVal);
     }
 }
@@ -111,9 +115,15 @@ void print_map(HashMap* map) {
         } else if (strcmp(current->value.type, "float") == 0) {
             printf("%f", current->value.value.doubleVal);
         } else if (strcmp(current->value.type, "string") == 0) {
-            printf("%s", current->value.value.strVal);
+            if (current->value.value.strVal != NULL) {
+                printf("%s", current->value.value.strVal);
+            } else {
+                printf("(string nula)");
+            }
         } else if (strcmp(current->value.type, "bool") == 0) {
             printf("%d", current->value.value.intVal);
+        } else if (strcmp(current->value.type, "void") == 0) {
+            printf("(função void)");
         } else if (strstr(current->value.type, "[]") != NULL) {
             printf("[array do tipo %s]", current->value.type);
         } else {

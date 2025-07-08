@@ -1,23 +1,21 @@
 # Ignorar arquivos de configuração do Visual Studio Code
 .vscode/
 
-# Arquivos gerados pelo Flex
-lex.yy.c
+# Diretório de build (arquivos gerados)
+build/
 
-# Arquivos gerados pelo Bison
-parser.tab.c
-parser.tab.h
-parser.output
-parser.gv
-
-# Executáveis compilados
-analisador_lexico
+# Executável principal
 penelope_parser
 
 # Arquivos de saída e temporários
 *.o
 *.out
-saida.txt
+output/
+
+# Arquivos temporários do sistema
+.DS_Store
+*~
+*.tmp
 
 # Arquivos de debug
 *.dSYM/

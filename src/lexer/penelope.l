@@ -19,6 +19,7 @@
 "else"               { return ELSE; }
 "len"                { return LEN; }
 "print"              { return PRINT; }
+"read"               { return READ; }
 "return"             { return RETURN; }
 
 "{"                  { return LBRACE; }

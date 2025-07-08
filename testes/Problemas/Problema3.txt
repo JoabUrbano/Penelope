@@ -1,0 +1,145 @@
+fun void main() {
+    
+    int: linhas1;
+    int: colunas1;
+    int: linhas2;
+    int: colunas2;
+    
+    print("Digite o número de linhas da primeira matriz: ");
+    read(linhas1);
+    print("\nDigite o número de colunas da primeira matriz: ");
+    read(colunas1);
+    
+    print("\nDigite o número de linhas da segunda matriz: ");
+    read(linhas2);
+    print("\nDigite o número de colunas da segunda matriz: ");
+    read(colunas2);
+    
+    // Validação das dimensões
+    if (linhas1 <= 0 || colunas1 <= 0) {
+        print("ERRO: Dimensões da primeira matriz inválidas!\n");
+    } else {
+        if (linhas2 <= 0 || colunas2 <= 0) {
+            print("ERRO: Dimensões da segunda matriz inválidas!\n");
+        } else {
+            
+            // Declaração das matrizes bidimensionais
+            int[][]: matriz1; // Primeira matriz
+            int[][]: matriz2; // Segunda matriz
+            
+            // LEITURA DAS MATRIZES
+            print("\nLendo matriz 1 (", linhas1, "x", colunas1,")");
+            
+            for (int: i = 0; i < linhas1; i++) {
+                for (int: j = 0; j < colunas1; j++) {
+                    print("\nDigite o elemento [", i, ",", j, "]: ");
+                    read(matriz1[i][j]);
+                }
+            }
+            
+            print("\nLendo matriz 2 (", linhas2, "x", colunas2,")");
+            
+            for (int: i = 0; i < linhas2; i++) {
+                for (int: j = 0; j < colunas2; j++) {
+                    print("\nDigite o elemento [", i, ",", j, "]: ");
+                    read(matriz2[i][j]);
+                }
+            }
+            
+            // IMPRESSÃO DAS MATRIZES LIDAS
+            print("\nMatrizes Lidas: \n");
+            print("\nMatriz A:\n");
+            for (int: i = 0; i < linhas1; i++) {
+                for (int: j = 0; j < colunas1; j++) {
+                    print(matriz1[i][j], " ");
+                }
+                print("\n"); 
+            }
+            
+            
+            print("\nMatriz B:\n");
+            for (int: i = 0; i < linhas2; i++) {
+                for (int: j = 0; j < colunas2; j++) {
+                    print(matriz2[i][j], " ");
+                }
+                print("\n"); // Nova linha após cada linha da matriz
+            }
+            
+            // TESTE DE SOMA DE MATRIZES
+            bool: podesomarLinhas = (linhas1 == linhas2);
+            bool: podesomarColunas = (colunas1 == colunas2);
+            bool: podeSomar = podesomarLinhas && podesomarColunas;
+            
+            if (podeSomar) {
+                print("\nSoma possível: as matrizes têm as mesmas dimensões");
+                
+                int[][]: matrizSoma; // Matriz resultado da soma 2D
+                
+                for (int: i = 0; i < linhas1; i++) {
+                    for (int: j = 0; j < colunas1; j++) {
+                        matrizSoma[i][j] = matriz1[i][j] + matriz2[i][j];
+                    }
+                }
+                
+                print("\nRESULTADO DA SOMA (A + B):\n");
+                for (int: i = 0; i < linhas1; i++) {
+                    for (int: j = 0; j < colunas1; j++) {
+                        print(matrizSoma[i][j], " ");
+                    }
+                    print("\n"); // Nova linha após cada linha da matriz
+                }
+                
+            } else {
+                print("\nERRO: Não é possível somar as matrizes.");
+                print("\nPara somar, as matrizes devem ter as mesmas dimensões.");
+                print("\nMatriz A:", linhas1, "x", colunas1,"\n");
+                print("\nMatriz B:", linhas2, "x", colunas2,"\n");
+            }
+            
+            // TESTE DE MULTIPLICAÇÃO DE MATRIZES
+            
+            bool: podeMultiplicar = (colunas1 == linhas2);
+            
+            if (podeMultiplicar) {
+                print("\nMultiplicação possível: A[", linhas1, "x", colunas1, "] x B[", linhas2, "x", colunas2, "]\n");
+                
+                int: linhasResultado = linhas1;
+                int: colunasResultado = colunas2;
+                print("Matriz resultado terá dimensões:", linhasResultado, "x", colunasResultado,"\n");
+                
+                int[][]: matrizProduto; // Matriz resultado da multiplicação 2D
+                
+                // Algoritmo de multiplicação de matrizes
+                for (int: i = 0; i < linhas1; i++) {
+                    for (int: j = 0; j < colunas2; j++) {
+                        int: soma = 0;
+                        
+                        for (int: k = 0; k < colunas1; k++) {
+                            soma = soma + (matriz1[i][k] * matriz2[k][j]);
+                        }
+                        
+                        matrizProduto[i][j] = soma;
+                    }
+                }
+                
+                print("\nRESULTADO DA MULTIPLICAÇÃO (A x B):\n");
+                for (int: i = 0; i < linhasResultado; i++) {
+                    for (int: j = 0; j < colunasResultado; j++) {
+                        print(matrizProduto[i][j], " ");
+                    }
+                    print("\n"); // Nova linha após cada linha da matriz
+                }
+                
+            } else {
+                print("\nERRO: Não é possível multiplicar as matrizes.");
+                print("\nPara multiplicar A x B, o número de colunas de A");
+                print("\ndeve ser igual ao número de linhas de B.");
+                print("\nMatriz A: ", linhas1, "x", colunas1, " (colunas:", colunas1, ")");
+                print("\nMatriz B: ", linhas2, "x", colunas2, " (linhas:", linhas2, ")");
+                print("\n");
+            }
+            
+        }
+    }
+    
+}

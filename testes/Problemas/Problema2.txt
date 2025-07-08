@@ -1,0 +1,50 @@
+fun void main() {
+    int: faixa1 = 0;  // [0, 25]
+    int: faixa2 = 0;  // [26, 50]
+    int: faixa3 = 0;  // [51, 75]
+    int: faixa4 = 0;  // [76, 100]
+    int: atual;
+    
+    print("Digite números para classificar nas faixas:\n");
+    print("[0-25], [26-50], [51-75], [76-100]");
+    print("\nDigite um número negativo para terminar.\n");
+
+    while(true) {
+        print("\nDigite um número: ");
+        read(atual);
+
+        if(atual < 0) {
+            print("\nNúmero negativo detectado. Encerrando programa...\n");
+            break;
+        }
+
+        if(atual >= 0 && atual <= 25) {
+            faixa1++;
+            print("Número ", atual, " classificado na faixa [0-25]\n");
+        } else {
+            if(atual >= 26 && atual <= 50) {
+                faixa2++;
+                print("Número ", atual, " classificado na faixa [26-50]\n");
+            } else {
+                if(atual >= 51 && atual <= 75) {
+                    faixa3++;
+                    print("Número ", atual, " classificado na faixa [51-75]\n");
+                } else {
+                    if(atual >= 76 && atual <= 100) {
+                        faixa4++;
+                        print("Número ", atual, " classificado na faixa [76-100]\n");
+                    } else {
+                        print("Número ", atual, " está fora das faixas válidas [0-100]\n");
+                    }
+                }
+            }
+        }
+    }
+
+    print("\nRESULTADOS FINAIS:");
+    print("\nValores no intervalo [0, 25]: ", faixa1);
+    print("\nValores no intervalo [26, 50]: ", faixa2);
+    print("\nValores no intervalo [51, 75]: ", faixa3);
+    print("\nValores no intervalo [76, 100]: ", faixa4);
+    print("\n");
+}

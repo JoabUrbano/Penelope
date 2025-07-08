@@ -13,7 +13,7 @@ sudo apt update
 sudo apt install flex
 ```
 
-Para o analisador sintático, você também precisará do Bison:
+Para compilar o parser, você também precisará do Bison:
 
 ```bash
 sudo apt install bison
@@ -22,14 +22,14 @@ sudo apt install bison
 Além disso, para suportar a geração de identificadores únicos via UUID, é necessário instalar a biblioteca de desenvolvimento do UUID:
 
 ```bash
-sudo apt install uuid-dev
+sudo apt install libuuid1 uuid-dev
 ```
 
 ---
 
-### Compilação e execução com Makefile
+### Compilação
 
-Agora o projeto conta com um **Makefile** que automatiza o processo de compilação.
+O projeto conta com um **Makefile** que automatiza o processo de compilação.
 
 Para compilar o parser, basta executar:
 
@@ -37,7 +37,12 @@ Para compilar o parser, basta executar:
 make
 ```
 
-Isso irá compilar o analisador léxico e sintático, além das dependências, e gerar o executável `penelope_parser`.
+Este comando irá:
+1. Criar automaticamente o diretório `build/` (se não existir)
+2. Gerar o analisador léxico (`lex.yy.c`) a partir de `src/lexer/penelope.l` usando o Flex
+3. Gerar o analisador sintático (`parser.tab.c` e `parser.tab.h`) a partir de `src/penelope.y` usando o Bison
+4. Compilar todos os módulos do projeto
+5. Criar o executável `penelope_parser` no diretório raiz
 
 Para limpar os arquivos gerados, use:
 
@@ -45,41 +50,77 @@ Para limpar os arquivos gerados, use:
 make clean
 ```
 
+
+## Executando Programas Penelope
+
+### Execução Rápida (Recomendado)
+```bash
+# Compila e cria executável automaticamente
+./penelope_parser -c testes/Problemas/Problema1.txt
+
+# Executa o programa
+./output/Problema1
+```
+
+### Execução Manual (se necessário)
+Se você gerou apenas o código C com `-S`, pode compilar manualmente:
+
+```bash
+# Gerar apenas código C
+./penelope_parser -S testes/Problemas/Problema1.txt
+
+# Compilar manualmente 
+gcc -o output/Problema1 output/Problema1.c -lm
+
+# Executar
+./output/Problema1
+```
+
+## Exemplos de Código Penelope
+
+O repositório inclui vários exemplos funcionais de código Penelope:
+
+### Problemas Principais (Totalmente Funcionais):
+- **`testes/Problemas/Problema1.txt`** - Cálculos matemáticos com exponenciação
+- **`testes/Problemas/Problema2.txt`** - Classificação de números com estruturas condicionais aninhadas  
+- **`testes/Problemas/Problema3.txt`** - Operações com matrizes 2D (soma e multiplicação)
+
+### Exemplos de Conceitos:
+- `testes/CodigosExemplos/codigoPenelope.txt` - Exemplo com funções e arrays 1D
+- `testes/CodigosExemplos/quantidadeVendas.txt` - Processamento de dados com arrays
+- `testes/CodigosExemplos/comParenteses.txt` - Exemplo de código com parênteses e operações matemáticas 
+
+## Características da Linguagem Penelope
+
+A linguagem Penelope suporta:
+
+### Tipos de Dados
+- **Tipos básicos**: `int`, `float`, `bool`, `string`
+- **Arrays 1D**: `int[]`, `float[]`, `string[]`
+- **Arrays 2D**: `int[][]`, `float[][]` (com alocação dinâmica automática)
+- **Declaração com tipagem explícita**: `int: x = 5;`
+
+### Estruturas de Controle
+- **Condicionais**: `if-else` (com suporte a aninhamento profundo)
+- **Loops**: `while`, `for` (com declaração inline de variáveis)
+- **Controle de fluxo**: `break`, `return`
+
+### Funcionalidades Avançadas
+- **Funções**: Com parâmetros tipados e valores de retorno
+- **Operações matemáticas**: Incluindo exponenciação (`**`) 
+- **Arrays literais**: `int[]: nums = [1, 2, 3, 4, 5];`
+- **E/S**: Comandos `read()` e `print()` com formatação inteligente
+- **Matrizes**: Operações automáticas em arrays 2D com inferência de dimensões
+
 ---
 
-### Execução
+## Ajduda
 
-Foram preparados três exemplos de código Penelope, abrangendo todos os construtores sintáticos da linguagem.
-
-Para analisar o código de um dos exemplos, execute:
+Para mais informações sobre como usar o Penelope, você pode acessar a ajuda do parser com o seguinte comando:
 
 ```bash
-./penelope_parser tests/codigoPenelope.txt
+./penelope_parser --help
 ```
-
-ou
-
-```bash
-./penelope_parser tests/comParenteses.txt
-```
-
-ou
-
-```bash
-./penelope_parser tests/quantidadeVendas.txt
-```
-
----
-
-### Testando com outros arquivos
-
-Você pode analisar qualquer arquivo de código Penelope usando:
-
-```bash
-./penelope_parser seu_arquivo.txt
-```
-
----
 
 <br>Autores:<br>
 <a href="https://github.com/JoabUrbano">Joab Urbano</a><br>
