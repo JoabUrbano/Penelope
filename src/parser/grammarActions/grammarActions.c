@@ -42,7 +42,7 @@ void handle_var_declaration_with_assignment(const char* type, const char* var_na
     }
     
     if (!check_type_compatibility(type, expr->type)) {
-        semantic_error("Type mismatch: cannot assign %s to variable of type %s", expr->type, type);
+        semantic_error("Tipo não compatível: Não é possível atribuir %s para a variável do tipo %s", expr->type, type);
         return;
     }
     

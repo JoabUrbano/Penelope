@@ -186,8 +186,7 @@ int check_type_compatibility(const char* expected_type, const char* actual_type)
     }
     
     // Compatibilidade entre int e float
-    if ((strcmp(expected_type, "int") == 0 && strcmp(actual_type, "float") == 0) ||
-        (strcmp(expected_type, "float") == 0 && strcmp(actual_type, "int") == 0)) {
+    if ((strcmp(expected_type, "float") == 0 && strcmp(actual_type, "int") == 0)) {
         return 1;
     }
     

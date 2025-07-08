@@ -131,8 +131,11 @@ block:
         char *scopeId = uniqueIdentifier();
 
         push_scope(scopeId);
+
+        emit_code("{");
     } list_stmt RBRACE {
         pop_scope();
+        emit_code("}");
     }
     ;
 
