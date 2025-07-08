@@ -50,123 +50,77 @@ Para limpar os arquivos gerados, use:
 make clean
 ```
 
-**Nota:** O diretório `build/` contém apenas arquivos gerados automaticamente e não está incluído no repositório Git. Ele será criado automaticamente durante a compilação.
 
----
+## Executando Programas Penelope
 
-## Uso
-
-Para ver todas as opções disponíveis:
-
+### Execução Rápida (Recomendado)
 ```bash
-./penelope_parser --help
+# Compila e cria executável automaticamente
+./penelope_parser -c testes/Problemas/Problema1.txt
+
+# Executa o programa
+./output/Problema1
 ```
 
-## Modos de Execução
-
-O parser da linguagem Penelope possui dois modos principais de operação:
-
-### 1. Análise Semântica e Sintática
-
-Para apenas analisar a sintaxe e semântica de um programa Penelope sem gerar código C:
+### Execução Manual (se necessário)
+Se você gerou apenas o código C com `-S`, pode compilar manualmente:
 
 ```bash
-./penelope_parser arquivo_penelope.txt
+# Gerar apenas código C
+./penelope_parser -S testes/Problemas/Problema1.txt
+
+# Compilar manualmente 
+gcc -o output/Problema1 output/Problema1.c -lm
+
+# Executar
+./output/Problema1
 ```
-
-**Exemplo:**
-```bash
-./penelope_parser input/CodigosExemplos/codigoPenelope.txt
-```
-
-Este modo irá:
-- Verificar a sintaxe do código Penelope
-- Realizar análise semântica (verificação de tipos, declaração de variáveis, etc.)
-- Exibir a tabela de símbolos
-- Reportar erros encontrados
-
-### 2. Geração de Código C
-
-Para gerar código C a partir de um programa Penelope:
-
-```bash
-./penelope_parser -c arquivo_penelope.txt
-```
-ou
-```bash
-./penelope_parser --generate-c arquivo_penelope.txt
-```
-
-**Exemplo:**
-```bash
-./penelope_parser -c input/CodigosExemplos/codigoPenelope.txt
-```
-
-Este modo irá:
-- Realizar análise sintática e semântica
-- Gerar código C equivalente
-- Salvar o código C gerado na pasta `output/` com o mesmo nome do arquivo de entrada, mas com extensão `.c`
-
-#### Especificando arquivo de saída
-
-Você também pode especificar um nome personalizado para o arquivo C gerado:
-
-```bash
-./penelope_parser -o output/meu_programa.c arquivo_penelope.txt
-```
-
-### Opções de Linha de Comando
-
-- `-c, --generate-c`: Gera código C a partir do código Penelope
-- `-o ARQUIVO`: Especifica o arquivo de saída (automaticamente habilita geração de código C)
-- `-h, --help`: Mostra a mensagem de ajuda com todas as opções
-
-### Observações sobre Uso
-
-- Se nenhum arquivo for especificado, o parser lê da entrada padrão
-- A opção `-o` automaticamente habilita a geração de código C (não precisa usar `-c` junto)
-- Por padrão, quando usando `-c` sem `-o`, o código C é salvo em `output/` com o mesmo nome do arquivo de entrada mas com extensão `.c`
-
-## Executando o Código C Gerado
-
-Após gerar o código C, você pode compilá-lo e executá-lo:
-
-### Passo 1: Compilar o código C gerado
-```bash
-gcc -o output/programa output/meu_programa.c
-```
-
-### Passo 2: Executar o programa
-```bash
-./output/programa
-``` 
 
 ## Exemplos de Código Penelope
 
-O repositório inclui vários exemplos de código Penelope em diferentes locais:
+O repositório inclui vários exemplos funcionais de código Penelope:
 
-### Exemplos principais:
-- `input/CodigosExemplos/codigoPenelope.txt` - Exemplo com funções e arrays
-- `input/CodigosExemplos/comParenteses.txt` - Exemplo com expressões parentetizadas
-- `input/CodigosExemplos/quantidadeVendas.txt` - Exemplo de processamento de dados
+### Problemas Principais (Totalmente Funcionais):
+- **`testes/Problemas/Problema1.txt`** - Cálculos matemáticos com exponenciação
+- **`testes/Problemas/Problema2.txt`** - Classificação de números com estruturas condicionais aninhadas  
+- **`testes/Problemas/Problema3.txt`** - Operações com matrizes 2D (soma e multiplicação)
 
-### Problemas:
-- `input/Problemas/Problema1.txt`
-- `input/Problemas/Problema2.txt`
-- `input/Problemas/Problema3.txt`
+### Exemplos de Conceitos:
+- `testes/CodigosExemplos/codigoPenelope.txt` - Exemplo com funções e arrays 1D
+- `testes/CodigosExemplos/quantidadeVendas.txt` - Processamento de dados com arrays
+- `testes/CodigosExemplos/comParenteses.txt` - Exemplo de código com parênteses e operações matemáticas 
 
 ## Características da Linguagem Penelope
 
 A linguagem Penelope suporta:
-- Declaração de variáveis com tipagem explícita (`int: x = 5;`)
-- Tipos básicos: `int`, `float`, `bool`, `string`
-- Arrays unidimensionais e multidimensionais
-- Estruturas de controle: `if-else`, `while`, `for`
-- Funções com parâmetros e valores de retorno
-- Operações aritméticas, lógicas e de comparação
-- Comandos de entrada (`read`) e saída (`print`)
+
+### Tipos de Dados
+- **Tipos básicos**: `int`, `float`, `bool`, `string`
+- **Arrays 1D**: `int[]`, `float[]`, `string[]`
+- **Arrays 2D**: `int[][]`, `float[][]` (com alocação dinâmica automática)
+- **Declaração com tipagem explícita**: `int: x = 5;`
+
+### Estruturas de Controle
+- **Condicionais**: `if-else` (com suporte a aninhamento profundo)
+- **Loops**: `while`, `for` (com declaração inline de variáveis)
+- **Controle de fluxo**: `break`, `return`
+
+### Funcionalidades Avançadas
+- **Funções**: Com parâmetros tipados e valores de retorno
+- **Operações matemáticas**: Incluindo exponenciação (`**`) 
+- **Arrays literais**: `int[]: nums = [1, 2, 3, 4, 5];`
+- **E/S**: Comandos `read()` e `print()` com formatação inteligente
+- **Matrizes**: Operações automáticas em arrays 2D com inferência de dimensões
 
 ---
+
+## Ajduda
+
+Para mais informações sobre como usar o Penelope, você pode acessar a ajuda do parser com o seguinte comando:
+
+```bash
+./penelope_parser --help
+```
 
 <br>Autores:<br>
 <a href="https://github.com/JoabUrbano">Joab Urbano</a><br>

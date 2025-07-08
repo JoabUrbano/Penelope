@@ -21,4 +21,8 @@ Data* find_variable_in_scopes(const char* name);
 int are_types_compatible(const char* declaredType, const char* exprType);
 char* get_array_element_type(const char* arrayType);
 
+// Funções para gerenciamento de funções
+void store_function(const char* func_name, const char* return_type);
+char* get_function_return_type(const char* func_name);
+
 #endif // SYMBOL_TABLE_H

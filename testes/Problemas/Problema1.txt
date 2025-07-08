@@ -9,8 +9,9 @@ fun void main() {
     
     // Imprime o resultado na tela usando múltiplos argumentos
     print("Resultado da expressão x² - y + c:");
-    print("x =", x);
-    print("y =", y);
-    print("c =", c);
-    print("x² - y + c =", resultado);
+    print("\nx = ", x);
+    print("\ny = ", y);
+    print("\nc = ", c);
+    print("\nx² - y + c = ", resultado);
+    print("\n");
 }

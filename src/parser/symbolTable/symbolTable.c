@@ -23,13 +23,14 @@ char* get_array_element_type(const char* arrayType) {
         return NULL; // Não é um tipo de array
     }
     
-    char* elementType = malloc(strlen(arrayType));
+    char* elementType = malloc(strlen(arrayType) + 1);
     strcpy(elementType, arrayType);
     
-    // Remove o "[]" do final
+    // Remove o primeiro "[]" encontrado
     char* bracket = strstr(elementType, "[]");
     if (bracket) {
-        *bracket = '\0';
+        // Move o resto da string para a esquerda, removendo "[]"
+        memmove(bracket, bracket + 2, strlen(bracket + 2) + 1);
     }
     
     return elementType;
@@ -75,5 +76,36 @@ Data* find_variable_in_scopes(const char* name) {
             return &result->value;
         }
     }
+    return NULL;
+}
+
+// Função para armazenar informações de função na tabela de símbolos
+void store_function(const char* func_name, const char* return_type) {
+    if (!func_name || !return_type) return;
+    
+    char fullKey[256];
+    sprintf(fullKey, "function#%s", func_name);
+    
+    Data data;
+    data.type = strdup(return_type);
+    data.value.intVal = 0;
+    data.value.doubleVal = 0.0;
+    data.value.strVal = NULL;
+    
+    insert_node(&symbolTable, fullKey, data);
+}
+
+// Função para obter o tipo de retorno de uma função
+char* get_function_return_type(const char* func_name) {
+    if (!func_name) return NULL;
+    
+    char fullKey[256];
+    sprintf(fullKey, "function#%s", func_name);
+    
+    Node* result = find_node(&symbolTable, fullKey);
+    if (result && result->value.type) {
+        return strdup(result->value.type);
+    }
+    
     return NULL;
 }

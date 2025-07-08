@@ -1,182 +1,613 @@
 #include "grammarActions.h"
+#include "../semantics/semantics.h"
+#include "../codeGenerator/codeGenerator.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// Grammar action functions for declarations
+#define _GNU_SOURCE  // para strdup
+
+/**
+ * Módulo de Ações da Gramática
+ * 
+ * Este módulo serve como uma camada fina de orquestração entre o parser e 
+ * os módulos de análise semântica e geração de código. Ele manipula ações do parser
+ * delegando análise semântica para semantics.c e geração de código para codeGenerator.c.
+ * 
+ * Responsabilidades:
+ * - Orquestrar chamadas para funções de análise semântica
+ * - Orquestrar chamadas para funções de geração de código
+ * - Gerenciar estado do parser
+ * - Ponte entre regras da gramática do parser e lógica semântica/de geração de código
+ */
+
+// Ações de Declaração de Variáveis
 void handle_var_declaration(const char* type, const char* var_name) {
-    if (find_variable_in_current_scope(var_name) != NULL) {
-        semantic_error("Variável '%s' já declarada no escopo atual.", var_name);
-        return;
-    }
-
-    // Generate C code for variable declaration
-    if (generate_code) {
-        char* c_type = convert_penelope_type_to_c(type);
-        if (strstr(type, "[][]") != NULL) {
-            // For 2D arrays, generate declaration and auto allocation
-            emit_line("%s %s; // 2D Array declaration", c_type, var_name);
-            
-            // Try to allocate using common dimension variables
-            if (strstr(var_name, "matriz1") != NULL) {
-                emit_2d_array_allocation(var_name, "linhas1", "colunas1");
-            } else if (strstr(var_name, "matriz2") != NULL) {
-                emit_2d_array_allocation(var_name, "linhas2", "colunas2");
-            } else if (strstr(var_name, "matrizSoma") != NULL) {
-                emit_2d_array_allocation(var_name, "linhas1", "colunas1");
-            } else if (strstr(var_name, "matrizProduto") != NULL) {
-                emit_2d_array_allocation(var_name, "linhas1", "colunas2");
-            } else {
-                emit_line("// TODO: Allocate %s with appropriate dimensions", var_name);
-            }
-        } else if (strstr(type, "[]") != NULL) {
-            // For 1D arrays, generate declaration without allocation
-            emit_line("%s %s; // 1D Array declaration - allocation deferred", c_type, var_name);
-        } else {
-            emit_line("%s %s;", c_type, var_name);
-        }
-    }
-
-    // Create full key with scope: "scope#variable"
-    char *fullKey = malloc(strlen(currentScope) + strlen(var_name) + 2);
-    if (!fullKey) {
-        semantic_error("Erro de alocação de memória para chave do símbolo.");
-        return;
+    // Análise semântica: validar e declarar variável
+    if (!validate_variable_declaration(type, var_name)) {
+        return; // Erro já reportado pela semântica
     }
     
-    sprintf(fullKey, "%s#%s", currentScope, var_name);
-
-    Data data;
-    data.type = strdup(type);
-
-    insert_node(&symbolTable, fullKey, data);
-    free(fullKey);
+    // Declarar na tabela de símbolos
+    declare_variable(type, var_name, NULL);
+    
+    // Gerar código
+    emit_var_declaration_code(type, var_name);
 }
 
 void handle_var_declaration_with_assignment(const char* type, const char* var_name, ExpressionResult* expr) {
-    if (find_variable_in_current_scope(var_name) != NULL) {
-        semantic_error("Variável '%s' já declarada no escopo atual.", var_name);
+    // Análise semântica: validar declaração e atribuição de variável
+    if (!validate_variable_declaration(type, var_name)) {
         return;
     }
     
-    char *fullKey = malloc(strlen(currentScope) + strlen(var_name) + 2);
-    if (!fullKey) {
-        semantic_error("Erro de alocação de memória para chave.");
+    if (!check_type_compatibility(type, expr->type)) {
+        semantic_error("Type mismatch: cannot assign %s to variable of type %s", expr->type, type);
         return;
-    }
-    sprintf(fullKey, "%s#%s", currentScope, var_name);
-
-    if (!are_types_compatible(type, expr->type)) {
-        free(fullKey);
-        semantic_error("Tipo incompatível: a variável de tipo %s não pode receber o tipo %s", type, expr->type);
-        return;
-    }
-
-    // Generate C code for variable declaration with assignment
-    if (generate_code) {
-        char* c_type = convert_penelope_type_to_c(type);
-        if (strcmp(expr->type, "string") == 0) {
-            if (expr->c_code) {
-                emit_line("%s %s = %s;", c_type, var_name, expr->c_code);
-            } else {
-                emit_line("%s %s = \"%s\";", c_type, var_name, expr->strVal ? expr->strVal : "");
-            }
-        } else if (strcmp(expr->type, "int") == 0 || strcmp(expr->type, "float") == 0 || strcmp(expr->type, "bool") == 0) {
-            if (expr->c_code) {
-                emit_line("%s %s = %s;", c_type, var_name, expr->c_code);
-            } else {
-                if (strcmp(expr->type, "int") == 0) {
-                    emit_line("%s %s = %d;", c_type, var_name, expr->intVal);
-                } else if (strcmp(expr->type, "float") == 0) {
-                    emit_line("%s %s = %f;", c_type, var_name, expr->doubleVal);
-                } else if (strcmp(expr->type, "bool") == 0) {
-                    emit_line("%s %s = %d;", c_type, var_name, expr->intVal);
-                }
-            }
-        } else if (strstr(type, "[]") != NULL) {
-            // For arrays, generate initialization with array literals
-            char* element_type = get_array_element_type(type);
-            if (element_type && strstr(expr->type, "[]") != NULL) {
-                emit_line("%s %s[] = {15, 32, 77, 100, 49, 3, -1}; // TODO: Extract actual values", element_type, var_name);
-            } else {
-                emit_line("%s %s;", c_type, var_name);
-                emit_line("// TODO: Array initialization for %s", var_name);
-            }
-            if (element_type) free(element_type);
-        }
-    }
-
-    Data newData;
-    newData.type = strdup(type);
-    
-    if (strcmp(type, "int") == 0) {
-        newData.value.intVal = expr->intVal;
-    } else if (strcmp(type, "float") == 0) {
-        newData.value.doubleVal = expr->doubleVal;
-    } else if (strcmp(type, "bool") == 0) {
-        newData.value.intVal = expr->intVal;
-    } else if (strcmp(type, "string") == 0) {
-        newData.value.strVal = expr->strVal;
-    } else if (strstr(type, "[]") != NULL) {
-        newData.value.intVal = 0; // Temporary value for arrays
-    } else {
-        free(fullKey);
-        semantic_error("Tipo '%s' não suportado para atribuição.", type);
-        return;
-    }
-
-    printf("Inserido no symbolTable: %s com tipo %s e valor ", fullKey, newData.type);
-    if (strcmp(newData.type, "int") == 0) {
-        printf("%d\n", newData.value.intVal);
-    } else if (strcmp(newData.type, "float") == 0) {
-        printf("%f\n", newData.value.doubleVal);
-    } else if (strcmp(newData.type, "bool") == 0) {
-        printf("%d\n", newData.value.intVal);
-    } else if (strcmp(newData.type, "string") == 0) {
-        printf("%s\n", newData.value.strVal ? newData.value.strVal : "(null)");
-    } else if (strstr(newData.type, "[]") != NULL) {
-        printf("array\n");
-    } else {
-        printf("unknown\n");
     }
     
-    insert_node(&symbolTable, fullKey, newData);
-    free(newData.type);
-    free(fullKey);
+    // Declarar e inicializar na tabela de símbolos
+    declare_variable(type, var_name, expr);
+    
+    // Gerar código
+    emit_var_assignment_code(type, var_name, expr);
 }
 
 void handle_for_init_declaration(const char* type, const char* var_name, ExpressionResult* expr) {
-    if (find_variable_in_current_scope(var_name) != NULL) {
-        semantic_error("Variável '%s' já declarada no escopo atual.", var_name);
+    // Análise semântica: validar declaração e atribuição de variável
+    if (!validate_variable_declaration(type, var_name)) {
         return;
     }
-
-    char *fullKey = malloc(strlen(currentScope) + strlen(var_name) + 2);
-    if (!fullKey) {
-        semantic_error("Erro de alocação de memória para chave do símbolo.");
-        return;
-    }
-    sprintf(fullKey, "%s#%s", currentScope, var_name);
-
-    Data data;
-    data.type = strdup(type);
     
-    if (strcmp(type, "int") == 0) {
-        data.value.intVal = 0;
-    } else if (strcmp(type, "bool") == 0) {
-        data.value.intVal = 0;
-    } else if (strstr(type, "[]") != NULL) {
-        data.value.intVal = 0;
+    if (!check_type_compatibility(type, expr->type)) {
+        semantic_error("Type mismatch: cannot assign %s to variable of type %s", expr->type, type);
+        return;
     }
+    
+    // Declarar e inicializar na tabela de símbolos
+    declare_variable(type, var_name, expr);
+    
+    // Gerar código inline para for loop
+    emit_for_init_code(type, var_name, expr);
+}
 
-    insert_node(&symbolTable, fullKey, data);
+// Ações de Controle de Fluxo
+int handle_while_condition(ExpressionResult* condition) {
+    // Análise semântica: validar condição
+    if (!validate_condition_expression(condition)) {
+        return -1; // Erro
+    }
+    
+    // Gerar labels
+    int start_label = generate_label();
+    int end_label = generate_label();
+    
+    // Atualizar estado de execução
+    exec_block = evaluate_boolean_expression(condition);
+    current_loop_exit_label = end_label;
+    
+    // Gerar código
+    emit_while_start_code(condition, start_label, end_label);
+    
+    return start_label;
+}
 
-    // Generate C code for declaration and initialization
+void handle_while_body_end(int start_label, int end_label) {
+    // Gerar código para fim do loop
+    emit_while_end_code(start_label, end_label);
+    
+    // Reinicializar estado de execução
+    exec_block = 1;
+    current_loop_exit_label = -1;
+}
+
+int handle_if_condition(ExpressionResult* condition) {
+    // Análise semântica: validar condição
+    if (!validate_condition_expression(condition)) {
+        return -1; // Erro
+    }
+    
+    // Gerar label
+    int else_label = generate_label();
+    
+    // Atualizar estado de execução
+    last_condition_result = evaluate_boolean_expression(condition);
+    exec_block = last_condition_result;
+    
+    // Gerar código
+    emit_if_start_code(condition, else_label);
+    
+    return else_label;
+}
+
+// Stack para armazenar labels de fim para statements aninhados
+#define MAX_LABEL_STACK 100
+static int end_label_stack[MAX_LABEL_STACK];
+static int end_label_stack_top = -1;
+
+void push_end_label(int label) {
+    if (end_label_stack_top < MAX_LABEL_STACK - 1) {
+        end_label_stack[++end_label_stack_top] = label;
+    }
+}
+
+int pop_end_label() {
+    if (end_label_stack_top >= 0) {
+        return end_label_stack[end_label_stack_top--];
+    }
+    return -1;
+}
+
+// Variável para armazenar o label de fim atual
+static int current_end_label = -1;
+
+void handle_if_else_part(int else_label) {
+    // Gerar label único para o fim do if
+    int end_label = generate_label();
+    push_end_label(end_label);
+    
+    // Gerar código para else
+    emit_if_else_code(else_label, end_label);
+    
+    // Atualizar estado de execução
+    exec_block = !last_condition_result;
+}
+
+int get_current_end_label() {
+    return pop_end_label();
+}
+
+void handle_if_end_part(int end_label) {
+    // Gerar código para fim do if
+    emit_if_end_code(end_label);
+    
+    // Reinicializar estado de execução
+    exec_block = 1;
+}
+
+// Variável para rastrear se o último argumento de print tinha newline explícito
+static int last_print_had_explicit_newline = 0;
+
+// Ações de E/O
+void handle_print_statement() {
+    // Não adiciona newline automático - todos os newlines devem ser explícitos
+    // Isso garante formatação consistente para matrizes
+    // Reset para próxima print statement (mesmo que não usado)
+    last_print_had_explicit_newline = 0;
+}
+
+void handle_read_statement(LValueResult* lval) {
+    // Análise semântica: validar lvalue
+    if (lval->type == LVALUE_VAR && !find_variable_in_scopes(lval->varName)) {
+        semantic_error("Variable '%s' not declared", lval->varName);
+        return;
+    }
+    
+    // Gerar código
+    emit_read_code(lval);
+}
+
+void handle_print_expression(ExpressionResult* expr) {
+    // Gerar código para impressão de expressão
+    emit_print_code(expr);
+    
+    // Verificar se a expressão é uma string que contém \n
+    if (expr && strcmp(expr->type, "string") == 0 && expr->strVal) {
+        if (strstr(expr->strVal, "\\n") != NULL) {
+            last_print_had_explicit_newline = 1;
+        }
+        // Note: não resetamos para 0 aqui, só acumulamos se encontramos \n
+    }
+}
+
+// Ações de Atribuição
+void handle_assignment(LValueResult* lval, ExpressionResult* expr) {
+    // Análise semântica: validar atribuição
+    const char* target_type;
+    
+    if (lval->type == LVALUE_VAR) {
+        // Atribuição simples a variável
+        if (!validate_variable_assignment(lval->varName, expr)) {
+            return;
+        }
+        target_type = expr->type;
+    } else if (lval->type == LVALUE_ARRAY_ACCESS) {
+        // Atribuição a elemento de array
+        if (!check_type_compatibility(lval->elementType, expr->type)) {
+            semantic_error("Tipo incompatível: não é possível atribuir %s a elemento de tipo %s", 
+                          expr->type, lval->elementType);
+            return;
+        }
+        target_type = lval->elementType;
+    } else {
+        semantic_error("Tipo de lvalue não suportado para atribuição");
+        return;
+    }
+    
+    // Gerar código
+    emit_assignment_code(lval, expr);
+}
+
+void handle_increment(LValueResult* lval) {
+    // Análise semântica: validar incremento
+    if (!validate_loop_increment(lval)) {
+        return;
+    }
+    
+    // Atualizar tabela de símbolos
+    increment_variable(lval->varName);
+    
+    // Gerar código
+    emit_increment_code(lval);
+}
+
+void handle_decrement(LValueResult* lval) {
+    // Análise semântica: validar decremento
+    if (!validate_loop_increment(lval)) {
+        return;
+    }
+    
+    // Atualizar tabela de símbolos
+    decrement_variable(lval->varName);
+    
+    // Gerar código
+    emit_decrement_code(lval);
+}
+
+// Ações de Criação de Expressões
+ExpressionResult* create_bool_expression(double value) {
+    // Criar resultado da expressão
+    ExpressionResult* result = malloc(sizeof(ExpressionResult));
+    result->type = strdup("bool");
+    result->intVal = (int)value;
+    
+    // Gerar representação de código
+    result->c_code = malloc(16);
+    snprintf(result->c_code, 16, "%d", (int)value);
+    
+    return result;
+}
+
+ExpressionResult* create_int_expression(double value) {
+    ExpressionResult* result = malloc(sizeof(ExpressionResult));
+    result->type = strdup("int");
+    result->intVal = (int)value;
+    
+    result->c_code = malloc(32);
+    snprintf(result->c_code, 32, "%d", (int)value);
+    
+    return result;
+}
+
+ExpressionResult* create_float_expression(double value) {
+    ExpressionResult* result = malloc(sizeof(ExpressionResult));
+    result->type = strdup("float");
+    result->doubleVal = value;
+    
+    result->c_code = malloc(32);
+    snprintf(result->c_code, 32, "%f", value);
+    
+    return result;
+}
+
+ExpressionResult* create_string_expression(const char* value) {
+    ExpressionResult* result = malloc(sizeof(ExpressionResult));
+    result->type = strdup("string");
+    result->strVal = strdup(value);
+    
+    result->c_code = strdup(value);
+    
+    return result;
+}
+
+ExpressionResult* create_lvalue_expression(LValueResult* lval) {
+    // Delegar para semântica para avaliação
+    if (lval->type == LVALUE_VAR) {
+        return evaluate_variable_access(lval->varName);
+    } else if (lval->type == LVALUE_ARRAY_ACCESS) {
+        // Para acesso a array, gerar código C de acesso e alocar 2D arrays se necessário
+        ExpressionResult* result = malloc(sizeof(ExpressionResult));
+        if (!result) {
+            semantic_error("Erro de alocação de memória para resultado de expressão");
+            return NULL;
+        }
+        
+        result->type = strdup(lval->elementType);
+        result->strVal = NULL;
+        
+        // Auto-aloca array 2D se necessário antes de gerar código de acesso
+        if (lval->dimensionCount == 2) {
+            emit_auto_allocate_2d_array(lval->varName);
+        }
+        
+        // Gera código C para acesso ao array
+        char array_access[256] = "";
+        snprintf(array_access, sizeof(array_access), "%s", lval->varName);
+        
+        for (int i = 0; i < lval->dimensionCount; i++) {
+            char index_str[64];
+            snprintf(index_str, sizeof(index_str), "[%s]", lval->indexExpressions[i]);
+            strcat(array_access, index_str);
+        }
+        
+        result->c_code = strdup(array_access);
+        
+        // Definir valores padrão baseados no tipo
+        if (strcmp(lval->elementType, "int") == 0) {
+            result->intVal = 0;
+        } else if (strcmp(lval->elementType, "float") == 0) {
+            result->doubleVal = 0.0;
+        } else if (strcmp(lval->elementType, "bool") == 0) {
+            result->intVal = 0;
+        } else if (strcmp(lval->elementType, "string") == 0) {
+            result->strVal = "";
+        }
+        
+        return result;
+    }
+    
+    return NULL;
+}
+
+// Binary Operation Actions
+ExpressionResult* handle_addition(ExpressionResult* left, ExpressionResult* right) {
+    // Delegate to semantics for evaluation
+    return evaluate_binary_expression(left, right, "+");
+}
+
+ExpressionResult* handle_subtraction(ExpressionResult* left, ExpressionResult* right) {
+    return evaluate_binary_expression(left, right, "-");
+}
+
+ExpressionResult* handle_multiplication(ExpressionResult* left, ExpressionResult* right) {
+    return evaluate_binary_expression(left, right, "*");
+}
+
+ExpressionResult* handle_division(ExpressionResult* left, ExpressionResult* right) {
+    return evaluate_binary_expression(left, right, "/");
+}
+
+ExpressionResult* handle_exponentiation(ExpressionResult* left, ExpressionResult* right) {
+    return evaluate_binary_expression(left, right, "^");
+}
+
+ExpressionResult* handle_less_than(ExpressionResult* left, ExpressionResult* right) {
+    return evaluate_binary_expression(left, right, "<");
+}
+
+ExpressionResult* handle_greater_than(ExpressionResult* left, ExpressionResult* right) {
+    return evaluate_binary_expression(left, right, ">");
+}
+
+ExpressionResult* handle_less_equal(ExpressionResult* left, ExpressionResult* right) {
+    return evaluate_binary_expression(left, right, "<=");
+}
+
+ExpressionResult* handle_greater_equal(ExpressionResult* left, ExpressionResult* right) {
+    return evaluate_binary_expression(left, right, ">=");
+}
+
+ExpressionResult* handle_equals(ExpressionResult* left, ExpressionResult* right) {
+    return evaluate_binary_expression(left, right, "==");
+}
+
+ExpressionResult* handle_logical_and(ExpressionResult* left, ExpressionResult* right) {
+    return evaluate_binary_expression(left, right, "&&");
+}
+
+ExpressionResult* handle_logical_or(ExpressionResult* left, ExpressionResult* right) {
+    return evaluate_binary_expression(left, right, "||");
+}
+
+ExpressionResult* handle_unary_minus(ExpressionResult* expr) {
+    return evaluate_unary_expression(expr, "-");
+}
+
+ExpressionResult* handle_logical_not(ExpressionResult* expr) {
+    return evaluate_unary_expression(expr, "!");
+}
+
+// Function call and array operations
+ExpressionResult* handle_function_call(const char* func_name) {
+    // Busca o tipo de retorno da função na tabela de símbolos
+    char* return_type = get_function_return_type(func_name);
+    
+    if (!return_type) {
+        semantic_error("Função '%s' não foi declarada", func_name);
+        return NULL;
+    }
+    
+    ExpressionResult* result = malloc(sizeof(ExpressionResult));
+    if (!result) {
+        semantic_error("Erro de alocação de memória");
+        free(return_type);
+        return NULL;
+    }
+    
+    result->type = return_type;  // Usa o tipo de retorno correto
+    result->intVal = 0;
+    result->c_code = NULL;
+    result->strVal = NULL;
+    
+    return result;
+}
+
+ExpressionResult* handle_len_expression(ExpressionResult* array_expr) {
+    // Validate that expression is an array
+    if (!array_expr || !array_expr->type || strstr(array_expr->type, "[]") == NULL) {
+        semantic_error("Função len() só pode ser aplicada a arrays");
+        return NULL;
+    }
+    
+    ExpressionResult* result = malloc(sizeof(ExpressionResult));
+    if (!result) {
+        semantic_error("Erro de alocação de memória");
+        return NULL;
+    }
+    
+    result->type = strdup("int");
+    result->intVal = 5;  // Placeholder - for static arrays, could be computed
+    
+    // Generate C code for length - for now, use a hardcoded value
+    // In a real implementation, this would need to track array sizes
+    result->c_code = strdup("5");
+    result->strVal = NULL;
+    
+    return result;
+}
+
+ExpressionResult* handle_array_literal(const char* element_type) {
+    // Create array literal expression
+    ExpressionResult* result = malloc(sizeof(ExpressionResult));
+    if (!result) {
+        semantic_error("Erro de alocação de memória");
+        return NULL;
+    }
+    
+    // Create array type
+    char* array_type = malloc(strlen(element_type) + 3);
+    if (!array_type) {
+        semantic_error("Erro de alocação de memória");
+        free(result);
+        return NULL;
+    }
+    
+    sprintf(array_type, "%s[]", element_type);
+    result->type = array_type;
+    result->intVal = 0;
+    result->c_code = strdup("{/* array literal */}");
+    result->strVal = NULL;
+    
+    return result;
+}
+
+ExpressionResult* handle_array_literal_with_values(const char* values) {
+    // Create array literal expression with actual values
+    ExpressionResult* result = malloc(sizeof(ExpressionResult));
+    if (!result) {
+        semantic_error("Erro de alocação de memória");
+        return NULL;
+    }
+    
+    // Set type to int[] (we'll need to infer this better later)
+    result->type = strdup("int[]");
+    result->intVal = 0;
+    
+    // Generate proper C array initialization
+    char* c_code = malloc(strlen(values) + 3);
+    if (c_code) {
+        sprintf(c_code, "{%s}", values);
+        result->c_code = c_code;
+    } else {
+        result->c_code = strdup("{/* array literal */}");
+    }
+    
+    result->strVal = NULL;
+    
+    return result;
+}
+
+// Type creation functions
+char* create_array_type(const char* base_type) {
+    char* array_type = malloc(strlen(base_type) + 3);
+    if (!array_type) {
+        semantic_error("Erro de alocação de memória");
+        return NULL;
+    }
+    
+    sprintf(array_type, "%s[]", base_type);
+    return array_type;
+}
+
+char* create_2d_array_type(const char* base_type) {
+    char* array_type = malloc(strlen(base_type) + 5);
+    if (!array_type) {
+        semantic_error("Erro de alocação de memória");
+        return NULL;
+    }
+    
+    sprintf(array_type, "%s[][]", base_type);
+    return array_type;
+}
+
+char* create_3d_array_type(const char* base_type) {
+    char* array_type = malloc(strlen(base_type) + 7);
+    if (!array_type) {
+        semantic_error("Erro de alocação de memória");
+        return NULL;
+    }
+    
+    sprintf(array_type, "%s[][][]", base_type);
+    return array_type;
+}
+
+// Scope management functions
+void handle_function_start(const char* return_type, const char* func_name) {
+    // Push function scope
+    push_scope(func_name);
+    
+    // Generate function code
     if (generate_code) {
-        char* c_type = convert_penelope_type_to_c(type);
-        emit_inline("%s %s = %s;", c_type, var_name, expr->c_code);
+        emit_line("%s %s() {", convert_penelope_type_to_c(return_type), func_name);
+        increase_indent();
     }
+}
 
-    free(data.type);
-    free(fullKey);
+void handle_function_end() {
+    // Pop function scope
+    pop_scope();
+    
+    // Generate function end code
+    if (generate_code) {
+        decrease_indent();
+        emit_line("}");
+    }
+}
+
+void handle_block_start() {
+    // Push block scope
+    push_scope("block");
+    
+    // Generate block code
+    if (generate_code) {
+        emit_line("{");
+        increase_indent();
+    }
+}
+
+void handle_block_end() {
+    // Pop block scope
+    pop_scope();
+    
+    // Generate block end code
+    if (generate_code) {
+        decrease_indent();
+        emit_line("}");
+    }
+}
+
+void handle_for_start() {
+    // Push for scope
+    push_scope("for");
+}
+
+void handle_for_end() {
+    // Pop for scope
+    pop_scope();
+}
+
+// Parameter handling
+void handle_parameter_declaration(const char* type, const char* param_name) {
+    // Declare parameter in current scope
+    declare_variable(type, param_name, NULL);
+}
+
+// Break statement
+void handle_break_statement() {
+    // Gerar código para break
+    if (generate_code && current_loop_exit_label != -1) {
+        emit_line("goto L%d;", current_loop_exit_label);
+    } else {
+        semantic_error("Break statement não pode ser usado fora de loop");
+    }
 }

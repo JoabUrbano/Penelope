@@ -6,16 +6,15 @@ fun void main() {
     int: atual;
     
     print("Digite números para classificar nas faixas:\n");
-    print("[0-25], [26-50], [51-75], [76-100]\n");
-    print("Digite um número negativo para terminar.\n");
-    print("\n");
+    print("[0-25], [26-50], [51-75], [76-100]");
+    print("\nDigite um número negativo para terminar.\n");
 
     while(true) {
-        print("Digite um número: ");
+        print("\nDigite um número: ");
         read(atual);
 
         if(atual < 0) {
-            print("Número negativo detectado. Encerrando programa...\n");
+            print("\nNúmero negativo detectado. Encerrando programa...\n");
             break;
         }
 
@@ -42,9 +41,10 @@ fun void main() {
         }
     }
 
-    print("\nRESULTADOS FINAIS: \n");
-    print("Valores no intervalo [0, 25]: ", faixa1, "\n");
-    print("Valores no intervalo [26, 50]: ", faixa2, "\n");
-    print("Valores no intervalo [51, 75]: ", faixa3, "\n");
-    print("Valores no intervalo [76, 100]: ", faixa4, "\n");
+    print("\nRESULTADOS FINAIS:");
+    print("\nValores no intervalo [0, 25]: ", faixa1);
+    print("\nValores no intervalo [26, 50]: ", faixa2);
+    print("\nValores no intervalo [51, 75]: ", faixa3);
+    print("\nValores no intervalo [76, 100]: ", faixa4);
+    print("\n");
 }

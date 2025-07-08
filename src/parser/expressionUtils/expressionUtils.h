@@ -5,7 +5,6 @@
 
 // Funções utilitárias de expressões
 char* expression_to_c_code(ExpressionResult* expr);
-void print_value(ExpressionResult* expr);
 void free_expression_result(ExpressionResult* expr);
 double evaluate_number(char *str);
 
