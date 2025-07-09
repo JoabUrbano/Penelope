@@ -2,9 +2,7 @@
 
 Penelope é uma proposta de linguagem de programação no contexto da disciplina de engenharia de linguagens. No repositório encontra-se o analisador léxico e o sintático (parser), com o objetivo de traduzir os códigos Penelope para C.
 
-## Como executar
-
-### Pré-requisitos
+## Pré-requisitos
 
 Para executar o analisador léxico da linguagem Penelope, você precisará ter o Flex instalado no seu sistema. Se ainda não tiver, instale-o com:
 
@@ -25,9 +23,8 @@ Além disso, para suportar a geração de identificadores únicos via UUID, é n
 sudo apt install libuuid1 uuid-dev
 ```
 
----
 
-### Compilação
+## Compilação
 
 O projeto conta com um **Makefile** que automatiza o processo de compilação.
 
@@ -49,7 +46,6 @@ Para limpar os arquivos gerados, use:
 ```bash
 make clean
 ```
-
 
 ## Executando Programas Penelope
 
@@ -112,9 +108,7 @@ A linguagem Penelope suporta:
 - **E/S**: Comandos `read()` e `print()` com formatação inteligente
 - **Matrizes**: Operações automáticas em arrays 2D com inferência de dimensões
 
----
-
-## Ajduda
+## Ajuda
 
 Para mais informações sobre como usar o Penelope, você pode acessar a ajuda do parser com o seguinte comando:
 
