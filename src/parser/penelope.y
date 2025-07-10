@@ -84,17 +84,18 @@ char* get_function_arguments();
 %type <exprResult> expression
 %type <labelNum> while_start if_start
 
-%right ASSIGNMENT
-%left MULTIPLICATION DIVISION MODULO
 %left OR
 %left AND
 %left EQUALS
 %left SMALLEREQUALS BIGGEREQUALS SMALLER BIGGER
 %left ADDITION SUBTRACTION
+%left MULTIPLICATION DIVISION MODULO
 %right EXPONENTIATION   
 %nonassoc UMINUS 
+%right ASSIGNMENT
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
+
 
 
 %start program
