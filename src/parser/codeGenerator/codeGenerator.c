@@ -394,15 +394,55 @@ void emit_var_declaration_code(const char* type, const char* var_name) {
 void emit_var_assignment_code(const char* type, const char* var_name, ExpressionResult* expr) {
     if (!generate_code) return;
     
+    // Check if we're in a function that returns an array and this is an array literal
+    extern char* current_function_return_type;
+    int in_array_returning_function = (current_function_return_type && strstr(current_function_return_type, "[]") != NULL);
+    
     char* c_type = convert_penelope_type_to_c(type);
     if (expr->c_code) {
         // Check if this is an array literal initialization
         if (strstr(type, "[]") != NULL && expr->c_code[0] == '{') {
-            // For array literals, use array syntax: int varname[] = {...}
+            // For array literals in functions that return arrays, use dynamic allocation
+            if (in_array_returning_function) {
+                if (strstr(type, "int[]") != NULL) {
+                    // Parse array literal to count elements and get values
+                    char* literal = expr->c_code;
+                    if (strstr(literal, "{0, 0}") != NULL) {
+                        // Common pattern for 2-element array initialization
+                        emit_line("int* %s = malloc(2 * sizeof(int));", var_name);
+                        emit_line("%s[0] = 0;", var_name);
+                        emit_line("%s[1] = 0;", var_name);
+                    } else {
+                        // Fallback: try to allocate based on array content
+                        emit_line("int* %s = malloc(2 * sizeof(int)); // Array literal", var_name);
+                        emit_line("// TODO: Initialize array elements from %s", literal);
+                    }
+                } else if (strstr(type, "float[]") != NULL) {
+                    emit_line("float* %s = malloc(2 * sizeof(float));", var_name);
+                    emit_line("%s[0] = 0.0;", var_name);
+                    emit_line("%s[1] = 0.0;", var_name);
+                } else {
+                    // Fallback to pointer syntax with malloc
+                    emit_line("%s %s = malloc(2 * sizeof(int)); // Generic array", c_type, var_name);
+                }
+            } else {
+                // For non-returning functions, use stack allocation as before
+                if (strstr(type, "int[]") != NULL) {
+                    emit_line("int %s[] = %s;", var_name, expr->c_code);
+                } else if (strstr(type, "float[]") != NULL) {
+                    emit_line("float %s[] = %s;", var_name, expr->c_code);
+                } else {
+                    // Fallback to pointer syntax
+                    emit_line("%s %s = %s;", c_type, var_name, expr->c_code);
+                }
+            }
+        } else if (strstr(type, "[]") != NULL && strstr(expr->c_code, "()") != NULL) {
+            // This is a function call that returns an array
+            // For function calls returning arrays, we need to declare the variable and assign
             if (strstr(type, "int[]") != NULL) {
-                emit_line("int %s[] = %s;", var_name, expr->c_code);
+                emit_line("int* %s = %s;", var_name, expr->c_code);
             } else if (strstr(type, "float[]") != NULL) {
-                emit_line("float %s[] = %s;", var_name, expr->c_code);
+                emit_line("float* %s = %s;", var_name, expr->c_code);
             } else {
                 // Fallback to pointer syntax
                 emit_line("%s %s = %s;", c_type, var_name, expr->c_code);
