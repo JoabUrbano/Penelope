@@ -130,7 +130,8 @@ char* convert_penelope_type_to_c(const char* penelopeType) {
     if (strstr(penelopeType, "int[]")) return "int*";
     if (strstr(penelopeType, "float[]")) return "float*";
     if (strstr(penelopeType, "string[]")) return "char**";
-
+    if (strstr(penelopeType, "int&") != NULL) return strdup("int*"); // referência
+    if (strstr(penelopeType, "float&") != NULL) return strdup("float*");
     return "void"; // fallback padrão
 }
 
