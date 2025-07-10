@@ -1,0 +1,122 @@
+// Implementação correta usando structs para números racionais
+
+struct rational_t {
+    int numerador;
+    int denominador;
+}
+
+fun rational_t criar_racional(int: a, int: b) {
+    rational_t: resultado;
+    resultado.numerador = a;
+    resultado.denominador = b;
+    return resultado;
+}
+
+fun bool eh_igual_racional(rational_t: a, rational_t: b) {
+    // Dois racionais a/b e c/d são iguais se a*d == b*c
+    return (a.numerador * b.denominador) == (b.numerador * a.denominador);
+}
+
+// Soma: a/b + c/d = (a*d + b*c)/(b*d)
+fun rational_t somar_racionais(rational_t: a, rational_t: b) {
+    rational_t: resultado;
+    resultado.numerador = a.numerador * b.denominador + a.denominador * b.numerador;
+    resultado.denominador = a.denominador * b.denominador;
+    return resultado;
+}
+
+// Negação: -(a/b) = (-a)/b
+fun rational_t negar_racional(rational_t: a) {
+    rational_t: resultado;
+    resultado.numerador = -a.numerador;
+    resultado.denominador = a.denominador;
+    return resultado;
+}
+
+// Subtração: a/b - c/d = (a*d - b*c)/(b*d)
+fun rational_t subtrair_racionais(rational_t: a, rational_t: b) {
+    rational_t: resultado;
+    resultado.numerador = a.numerador * b.denominador - a.denominador * b.numerador;
+    resultado.denominador = a.denominador * b.denominador;
+    return resultado;
+}
+
+// Multiplicação: (a/b) * (c/d) = (a*c)/(b*d)
+fun rational_t multiplicar_racionais(rational_t: a, rational_t: b) {
+    rational_t: resultado;
+    resultado.numerador = a.numerador * b.numerador;
+    resultado.denominador = a.denominador * b.denominador;
+    return resultado;
+}
+
+// Inverso: 1/(a/b) = b/a
+fun rational_t inverso_racional(rational_t: a) {
+    rational_t: resultado;
+    resultado.numerador = a.denominador;
+    resultado.denominador = a.numerador;
+    return resultado;
+}
+
+// Divisão: (a/b) / (c/d) = (a/b) * (d/c)
+fun rational_t dividir_racionais(rational_t: a, rational_t: b) {
+    rational_t: resultado;
+    resultado.numerador = a.numerador * b.denominador;
+    resultado.denominador = a.denominador * b.numerador;
+    return resultado;
+}
+
+fun void main() {
+    print("=== TESTE DE NÚMEROS RACIONAIS COM STRUCTS ===\n");
+    
+    // Criar alguns números racionais para teste
+    rational_t: r1 = criar_racional(3, 4);    // 3/4
+    rational_t: r2 = criar_racional(2, 5);    // 2/5
+    rational_t: r3 = criar_racional(6, 8);    // 6/8 (igual a 3/4)
+    
+    print("Racional 1: ", r1.numerador, "/", r1.denominador, "\n");
+    print("Racional 2: ", r2.numerador, "/", r2.denominador, "\n");
+    print("Racional 3: ", r3.numerador, "/", r3.denominador, "\n");
+    
+    // Teste de igualdade
+    print("\n=== TESTE DE IGUALDADE ===\n");
+    if (eh_igual_racional(r1, r3)) {
+        print("r1 e r3 são iguais (correto: 3/4 = 6/8)\n");
+    } else {
+        print("r1 e r3 são diferentes\n");
+    }
+    
+    if (eh_igual_racional(r1, r2)) {
+        print("r1 e r2 são iguais\n");
+    } else {
+        print("r1 e r2 são diferentes (correto: 3/4 ≠ 2/5)\n");
+    }
+    
+    // Teste das operações
+    print("\n=== OPERAÇÕES ARITMÉTICAS ===\n");
+    
+    // Soma
+    rational_t: soma = somar_racionais(r1, r2);
+    print("Soma (3/4 + 2/5): ", soma.numerador, "/", soma.denominador, "\n");
+    
+    // Negação
+    rational_t: neg = negar_racional(r1);
+    print("Negação de 3/4: ", neg.numerador, "/", neg.denominador, "\n");
+    
+    // Subtração
+    rational_t: sub = subtrair_racionais(r1, r2);
+    print("Subtração (3/4 - 2/5): ", sub.numerador, "/", sub.denominador, "\n");
+    
+    // Multiplicação
+    rational_t: mult = multiplicar_racionais(r1, r2);
+    print("Multiplicação (3/4 * 2/5): ", mult.numerador, "/", mult.denominador, "\n");
+    
+    // Inverso
+    rational_t: inv = inverso_racional(r1);
+    print("Inverso de 3/4: ", inv.numerador, "/", inv.denominador, "\n");
+    
+    // Divisão
+    rational_t: div = dividir_racionais(r1, r2);
+    print("Divisão (3/4 ÷ 2/5): ", div.numerador, "/", div.denominador, "\n");
+    
+    print("\n=== FIM DOS TESTES ===\n");
+}

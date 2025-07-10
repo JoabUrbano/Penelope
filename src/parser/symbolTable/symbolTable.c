@@ -9,6 +9,9 @@ int scopeTop = -1;
 HashMap symbolTable = { NULL };
 char *currentScope = NULL;
 
+// Global struct definitions storage
+StructDefinition* struct_definitions = NULL;
+
 // Função para verificar compatibilidade entre tipos
 int are_types_compatible(const char* declaredType, const char* exprType) {
     if (strcmp(declaredType, exprType) == 0) return 1;
@@ -108,4 +111,65 @@ char* get_function_return_type(const char* func_name) {
     }
     
     return NULL;
+}
+
+// ========== STRUCT MANAGEMENT FUNCTIONS ==========
+
+void add_struct_field(StructField** fields, const char* field_name, const char* field_type) {
+    StructField* new_field = malloc(sizeof(StructField));
+    new_field->name = strdup(field_name);
+    new_field->type = strdup(field_type);
+    new_field->next = *fields;
+    *fields = new_field;
+}
+
+void define_struct(const char* struct_name, StructField* fields) {
+    StructDefinition* new_def = malloc(sizeof(StructDefinition));
+    new_def->name = strdup(struct_name);
+    new_def->fields = fields;
+    new_def->next = struct_definitions;
+    struct_definitions = new_def;
+}
+
+StructDefinition* find_struct_definition(const char* struct_name) {
+    StructDefinition* current = struct_definitions;
+    while (current) {
+        if (strcmp(current->name, struct_name) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+
+StructField* find_struct_field(const char* struct_name, const char* field_name) {
+    StructDefinition* struct_def = find_struct_definition(struct_name);
+    if (!struct_def) return NULL;
+    
+    StructField* current = struct_def->fields;
+    while (current) {
+        if (strcmp(current->name, field_name) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+
+void free_struct_fields(StructField* fields) {
+    while (fields) {
+        StructField* temp = fields;
+        fields = fields->next;
+        free(temp->name);
+        free(temp->type);
+        free(temp);
+    }
+}
+
+void free_struct_definition(StructDefinition* def) {
+    if (def) {
+        free(def->name);
+        free_struct_fields(def->fields);
+        free(def);
+    }
 }

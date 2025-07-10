@@ -219,6 +219,14 @@ void handle_assignment(LValueResult* lval, ExpressionResult* expr) {
             return;
         }
         target_type = lval->elementType;
+    } else if (lval->type == LVALUE_STRUCT_FIELD) {
+        // Atribuição a campo de struct
+        if (!check_type_compatibility(lval->elementType, expr->type)) {
+            semantic_error("Tipo incompatível: não é possível atribuir %s a campo de tipo %s", 
+                          expr->type, lval->elementType);
+            return;
+        }
+        target_type = lval->elementType;
     } else {
         semantic_error("Tipo de lvalue não suportado para atribuição");
         return;
@@ -331,6 +339,34 @@ ExpressionResult* create_lvalue_expression(LValueResult* lval) {
         }
         
         result->c_code = strdup(array_access);
+        
+        // Definir valores padrão baseados no tipo
+        if (strcmp(lval->elementType, "int") == 0) {
+            result->intVal = 0;
+        } else if (strcmp(lval->elementType, "float") == 0) {
+            result->doubleVal = 0.0;
+        } else if (strcmp(lval->elementType, "bool") == 0) {
+            result->intVal = 0;
+        } else if (strcmp(lval->elementType, "string") == 0) {
+            result->strVal = "";
+        }
+        
+        return result;
+    } else if (lval->type == LVALUE_STRUCT_FIELD) {
+        // Para acesso a campo de struct, gerar código C de acesso
+        ExpressionResult* result = malloc(sizeof(ExpressionResult));
+        if (!result) {
+            semantic_error("Erro de alocação de memória para resultado de expressão");
+            return NULL;
+        }
+        
+        result->type = strdup(lval->elementType);
+        result->strVal = NULL;
+        
+        // Gera código C para acesso ao campo: struct_var.field_name
+        char field_access[256];
+        snprintf(field_access, sizeof(field_access), "%s.%s", lval->varName, lval->fieldName);
+        result->c_code = strdup(field_access);
         
         // Definir valores padrão baseados no tipo
         if (strcmp(lval->elementType, "int") == 0) {

@@ -130,6 +130,13 @@ char* convert_penelope_type_to_c(const char* penelopeType) {
     if (strstr(penelopeType, "int[]")) return "int*";
     if (strstr(penelopeType, "float[]")) return "float*";
     if (strstr(penelopeType, "string[]")) return "char**";
+    
+    // Check if it's a struct type
+    StructDefinition* struct_def = find_struct_definition(penelopeType);
+    if (struct_def) {
+        return strdup(penelopeType); // Struct types use the same name in C
+    }
+    
     return "void"; // fallback padrão
 }
 
@@ -274,6 +281,13 @@ void emit_assignment_code(LValueResult* lval, ExpressionResult* expr) {
             emit_inline("%s = %s", lval->varName, expr->c_code ? expr->c_code : "0");
         } else {
             emit_line("%s = %s;", lval->varName, expr->c_code ? expr->c_code : "0");
+        }
+    } else if (lval->type == LVALUE_STRUCT_FIELD) {
+        // Struct field assignment: struct_var.field = value
+        if (inline_mode) {
+            emit_inline("%s.%s = %s", lval->varName, lval->fieldName, expr->c_code ? expr->c_code : "0");
+        } else {
+            emit_line("%s.%s = %s;", lval->varName, lval->fieldName, expr->c_code ? expr->c_code : "0");
         }
     }
 }
@@ -525,4 +539,39 @@ void emit_auto_allocate_2d_array(const char* var_name) {
     emit_line("        %s[_i] = malloc(%s * sizeof(int));", var_name, cols_var);
     emit_line("    }");
     emit_line("}");
+}
+
+// ========== STRUCT CODE GENERATION ==========
+
+void emit_struct_definition(const char* struct_name, StructField* fields) {
+    if (!generate_code) return;
+    
+    emit_line("typedef struct {");
+    increase_indent();
+    
+    // Emit fields in reverse order (since they're stored as a linked list)
+    StructField* field_array[100];
+    int field_count = 0;
+    
+    StructField* current = fields;
+    while (current && field_count < 100) {
+        field_array[field_count++] = current;
+        current = current->next;
+    }
+    
+    // Emit fields in original order
+    for (int i = field_count - 1; i >= 0; i--) {
+        char* c_type = convert_penelope_type_to_c(field_array[i]->type);
+        emit_line("%s %s;", c_type, field_array[i]->name);
+    }
+    
+    decrease_indent();
+    emit_line("} %s;", struct_name);
+    emit_line("");
+}
+
+void emit_struct_field_access(const char* struct_var, const char* field_name, const char* field_type) {
+    // This function generates the C code for accessing a struct field
+    // The actual code generation happens in the expression handling
+    // This is just a helper that could be used for validation
 }
