@@ -58,8 +58,11 @@ void free_lvalue_result(LValueResult* lval) {
             }
             free(lval->indexExpressions);
         }
-        free(lval->fieldName);
-        free(lval->structType);
+        // Only free struct-specific fields if they exist
+        if (lval->type == LVALUE_STRUCT_FIELD) {
+            free(lval->fieldName);
+            free(lval->structType);
+        }
         free(lval);
     }
 }
