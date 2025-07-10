@@ -49,6 +49,7 @@
 "&&"                 { return AND; }
 "||"                 { return OR; }
 "&"                  { return '&'; } 
+"%"                  { return MODULO; }
 
 
 [0-9]+\.[0-9]+       { yylval.num = atof(yytext); return FLOAT; }
