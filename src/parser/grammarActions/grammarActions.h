@@ -5,7 +5,7 @@
 #include "../../structs/expression/expressionResult.h"
 #include "../../structs/lvalue/lvalueResult.h"
 
-// External variables needed for grammar actions
+// Variáveis externas necessárias para ações da gramática
 extern int generate_code;
 extern int exec_block;
 extern int current_loop_exit_label;
