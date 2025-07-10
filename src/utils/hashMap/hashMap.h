@@ -26,11 +26,11 @@ typedef struct HashMap
 
 Data copy_data(Data src);
 
-Node *find_node(HashMap *map, char *key);
+Node *find_node(HashMap *map, const char *key);
 
-void insert_node(HashMap *map, char *key, Data value);
+void insert_node(HashMap *map, const char *key, Data value);
 
-void remove_node(HashMap *map, char *key);
+void remove_node(HashMap *map, const char *key);
 
 void print_map(HashMap *map);
 

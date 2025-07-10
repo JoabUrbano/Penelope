@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
             output_file = argv[i + 1];
             output_c_code = 1;
             compile_code = 1;  // -o implies compilation
-            i++; // Skip next argument since it's the output file name
+            i++; // Pula o próximo argumento pois é o nome do arquivo de saída
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             print_help();
             return 0;
@@ -64,11 +64,11 @@ int main(int argc, char **argv) {
         yyin = stdin;
     }
 
-    // Initialize code generation
+    // Inicializa geração de código
     if (output_c_code) {
         generate_code = 1;
         init_code_generation();
-        // main function will be emitted by function rule
+        // função main será emitida pela regra de função
     } else {
         generate_code = 0;
     }
@@ -78,15 +78,15 @@ int main(int argc, char **argv) {
     int parse_result = yyparse();
     
     if (output_c_code) {
-        // Finalize C code generation
+        // Finaliza geração de código C
         finalize_code_generation();
         
         if (parse_result == 0 && semantic_errors == 0 && syntax_errors == 0) {
-            // Determine C source file name (always goes to output/ directory)
+            // Determina o nome do arquivo fonte C (sempre vai para o diretório output/)
             char *c_output_file;
             char default_c_output[256];
             
-            // Generate default C output file name based on input file
+            // Gera nome padrão do arquivo de saída C baseado no arquivo de entrada
             if (input_file) {
                 char *dot = strrchr(input_file, '.');
                 char *slash = strrchr(input_file, '/');
@@ -103,8 +103,8 @@ int main(int argc, char **argv) {
             }
             c_output_file = default_c_output;
             
-            // Write generated C code to file
-            // First, create directory if necessary
+            // Escreve o código C gerado para o arquivo
+            // Primeiro, cria o diretório se necessário
             char* output_dir = get_directory_from_path(c_output_file);
             if (output_dir && !create_directory_if_not_exists(output_dir)) {
                 fprintf(stderr, "Erro: Não foi possível criar o diretório '%s'\n", output_dir);
@@ -119,26 +119,26 @@ int main(int argc, char **argv) {
                 fclose(output_fp);
                 printf("Código C gerado com sucesso: %s\n", c_output_file);
                 
-                // Automatic compilation if requested
+                // Compilação automática se solicitada
                 if (compile_code) {
-                    // Determine executable name
+                    // Determina nome do executável
                     char exe_name[256];
                     if (output_file) {
-                        // Use specified output file name for executable
+                        // Usa o nome de arquivo de saída especificado para o executável
                         strncpy(exe_name, output_file, sizeof(exe_name) - 1);
                         exe_name[sizeof(exe_name) - 1] = '\0';
                     } else {
-                        // Generate executable name by removing .c extension from C file
+                        // Gera nome do executável removendo extensão .c do arquivo C
                         strncpy(exe_name, c_output_file, sizeof(exe_name) - 1);
                         exe_name[sizeof(exe_name) - 1] = '\0';
                         
                         char* dot = strrchr(exe_name, '.');
                         if (dot && strcmp(dot, ".c") == 0) {
-                            *dot = '\0'; // Remove .c extension
+                            *dot = '\0'; // Remove extensão .c
                         }
                     }
                     
-                    // Build compilation command with math library
+                    // Constrói comando de compilação com biblioteca math
                     char compile_cmd[512];
                     snprintf(compile_cmd, sizeof(compile_cmd), "gcc -o \"%s\" \"%s\" -lm", exe_name, c_output_file);
                     
@@ -202,7 +202,7 @@ int main(int argc, char **argv) {
         print_map(&symbolTable);
     }
     
-    // Free global scope
+    // Libera escopo global
     pop_scope(); 
 
     free_map(&symbolTable);

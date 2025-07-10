@@ -4,7 +4,7 @@
 typedef struct ExpressionResult
 {
     char *type;
-    char *c_code;  // C code representation for code generation
+    char *c_code;  // Representação em código C para geração de código
     union
     {
         double doubleVal;

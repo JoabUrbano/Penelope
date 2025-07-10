@@ -16,7 +16,7 @@ int inline_mode = 0;
 int current_loop_exit_label = -1;
 int in_main_function = 0;
 
-// Global flag for else-if chain tracking is declared in header
+// Flag global para rastreamento de cadeia else-if é declarada no header
 
 // Função para desabilitar temporariamente a geração de código
 void disable_code_generation() {
@@ -282,7 +282,7 @@ void emit_assignment_code(LValueResult* lval, ExpressionResult* expr) {
             emit_line("%s = %s;", array_access, expr->c_code ? expr->c_code : "0");
         }
     } else if (lval->type == LVALUE_VAR) {
-        // Check if it's a reference parameter (type ends with &)
+        // Verifica se é um parâmetro de referência (tipo termina com &)
         Data* var_data = find_variable_in_scopes(lval->varName);
         int is_reference = 0;
         if (var_data && var_data->type) {
@@ -306,7 +306,7 @@ void emit_assignment_code(LValueResult* lval, ExpressionResult* expr) {
             }
         }
     } else if (lval->type == LVALUE_STRUCT_FIELD) {
-        // Struct field assignment: struct_var.field = value
+        // Atribuição de campo de struct: struct_var.field = value
         if (inline_mode) {
             emit_inline("%s.%s = %s", lval->varName, lval->fieldName, expr->c_code ? expr->c_code : "0");
         } else {

@@ -374,7 +374,7 @@ ExpressionResult* create_lvalue_expression(LValueResult* lval) {
 
 // Binary Operation Actions
 ExpressionResult* handle_addition(ExpressionResult* left, ExpressionResult* right) {
-    // Delegate to semantics for evaluation
+    // Delega para semântica para avaliação
     return evaluate_binary_expression(left, right, "+");
 }
 
@@ -434,7 +434,7 @@ ExpressionResult* handle_logical_not(ExpressionResult* expr) {
     return evaluate_unary_expression(expr, "!");
 }
 
-// Forward declaration for argument processing
+// Declaração antecipada para processamento de argumentos
 char* process_function_arguments(const char* func_name, const char* raw_args);
 
 // Function call and array operations
@@ -458,7 +458,7 @@ ExpressionResult* handle_function_call(const char* func_name) {
     result->intVal = 0;
     result->strVal = NULL;
     
-    // Generate function call code
+    // Gera código de chamada de função
     char* call_code = malloc(strlen(func_name) + 10);
     if (call_code) {
         sprintf(call_code, "%s()", func_name);
@@ -491,10 +491,10 @@ ExpressionResult* handle_function_call_with_args(const char* func_name, const ch
     result->intVal = 0;
     result->strVal = NULL;
     
-    // Process arguments to handle reference parameters
+    // Processa argumentos para lidar com parâmetros de referência
     char* processed_args = process_function_arguments(func_name, args);
     
-    // Generate function call code with processed arguments
+    // Gera código de chamada de função com argumentos processados
     char* call_code = malloc(strlen(func_name) + strlen(processed_args) + 10);
     if (call_code) {
         sprintf(call_code, "%s(%s)", func_name, processed_args);
@@ -719,7 +719,7 @@ void handle_return_statement(ExpressionResult* expr) {
     }
 }
 
-// Function to process arguments and handle reference parameters
+// Função para processar argumentos e lidar com parâmetros de referência
 char* process_function_arguments(const char* func_name, const char* raw_args) {
     if (!func_name || !raw_args) return strdup("");
     
@@ -736,7 +736,7 @@ char* process_function_arguments(const char* func_name, const char* raw_args) {
         return strdup(raw_args);
     }
     
-    // Build array of parameter types for easier access
+    // Constrói array de tipos de parâmetros para acesso mais fácil
     char param_types[10][50]; // Support up to 10 parameters, 50 chars each
     int param_count = 0;
     
@@ -756,7 +756,7 @@ char* process_function_arguments(const char* func_name, const char* raw_args) {
         strcpy(param_types[param_count - 1 - i], temp);
     }
     
-    // Process arguments
+    // Processa argumentos
     char* processed_args = malloc(strlen(raw_args) + param_count * 2 + 10); // Extra space for & symbols
     processed_args[0] = '\0';
     

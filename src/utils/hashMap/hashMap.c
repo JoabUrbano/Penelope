@@ -17,7 +17,7 @@ Data copy_data(Data src) {
     } else if (strcmp(src.type, "bool") == 0) {
         dest.value.intVal = src.value.intVal;
     } else if (strcmp(src.type, "function_params") == 0) {
-        // Special handling for function parameter pointers - just copy the pointer
+        // Tratamento especial para ponteiros de parâmetros de função - apenas copia o ponteiro
         dest.value.strVal = src.value.strVal;
     } else {
         dest.value.strVal = NULL;
@@ -40,11 +40,11 @@ void free_data(Data data) {
         free(data.value.strVal);
     }
     
-    // For function_params, we don't free the pointer here as it's managed separately
-    // The FunctionParamInfo structures are managed by the symbol table
+    // Para function_params, não liberamos o ponteiro aqui pois é gerenciado separadamente
+    // As estruturas FunctionParamInfo são gerenciadas pela tabela de símbolos
 }
 
-Node* find_node(HashMap* map, char* key) {
+Node* find_node(HashMap* map, const char* key) {
     Node* current = map->nodes;
     while (current != NULL) {
         if (strcmp(current->key, key) == 0) {
@@ -55,7 +55,7 @@ Node* find_node(HashMap* map, char* key) {
     return NULL;
 }
 
-void insert_node(HashMap* map, char* key, Data value) {
+void insert_node(HashMap* map, const char* key, Data value) {
     Node* existingNode = find_node(map, key);
     if (existingNode != NULL) {
         // Sobrescreve valor anterior
@@ -88,7 +88,7 @@ void free_node(Node* node) {
     }
 }
 
-void remove_node(HashMap* map, char* key) {
+void remove_node(HashMap* map, const char* key) {
     Node* current = map->nodes;
     Node* previous = NULL;
 

@@ -13,7 +13,7 @@ typedef struct LValueResult {
     char* elementType;    // Para acesso a array: o tipo do elemento (ex: "int")
     int dimensionCount;   // Número de dimensões (1 para arr[i], 2 para arr[i][j])
     char** indexExpressions; // Expressões C para cada índice
-    // For struct field access
+    // Para acesso a campo de struct
     char* fieldName;      // Nome do campo (para LVALUE_STRUCT_FIELD)
     char* structType;     // Tipo do struct (para LVALUE_STRUCT_FIELD)
 } LValueResult;
