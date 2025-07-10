@@ -355,21 +355,26 @@ list_param:
 
 param:
     type COLON ID {
-        // Adiciona o parâmetro à tabela de símbolos no escopo atual da função
-        if (find_variable_in_current_scope($3) != NULL) {
-            semantic_error("Parâmetro '%s' já declarado na função.", $3);
+        add_function_parameter($1, $3);
+        // mesma lógica de inserção na tabela de símbolos
+    }
+    | type '&' COLON ID {
+        // Tipo com referência: int&: r
+        char* ref_type = malloc(strlen($1) + 2);
+        sprintf(ref_type, "%s&", $1);  // int& ou float& etc.
+        add_function_parameter(ref_type, $4);
+        free(ref_type);
+
+        // mesma lógica de inserção na tabela de símbolos
+        if (find_variable_in_current_scope($4) != NULL) {
+            semantic_error("Parâmetro '%s' já declarado na função.", $4);
         } else {
-            char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
-            sprintf(fullKey, "%s#%s", currentScope, $3);
-            
+            char *fullKey = malloc(strlen(currentScope) + strlen($4) + 2);
+            sprintf(fullKey, "%s#%s", currentScope, $4);
             Data data;
-            data.type = strdup($1);
-            
+            data.type = strdup(ref_type);
             insert_node(&symbolTable, fullKey, data);
             free(fullKey);
-            
-            // Add parameter to collection for function signature generation
-            add_function_parameter($1, $3);
         }
     }
     ;

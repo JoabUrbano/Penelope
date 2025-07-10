@@ -11,3 +11,12 @@ fun void mdc(int: n, int: m, int&: r) {
     }
 }
 
+fun void main() {
+    int: a = 48;
+    int: b = 18;
+    int: resultado;
+
+    mdc(a, b, resultado);
+
+    print("O MDC de ", a, " e ", b, " é: ", resultado, "\n");
+}
