@@ -360,24 +360,26 @@ void emit_if_start_code(ExpressionResult* condition, int else_label) {
     
     emit_line("// condição if");
     if (condition->c_code) {
-        emit_line("if (!(%s)) goto L%d;", condition->c_code, else_label);
+        emit_line("if (%s) {", condition->c_code);
     } else {
-        emit_line("if (!(1)) goto L%d;", else_label);
+        emit_line("if (1) {");
     }
+    increase_indent();
 }
 
 void emit_if_else_code(int else_label, int end_label) {
     if (!generate_code) return;
     
-    emit_line("goto L%d;", end_label);
-    emit_line("L%d:", else_label);
-    emit_line("// parte else");
+    decrease_indent();
+    emit_line("} else {");
+    increase_indent();
 }
 
 void emit_if_end_code(int end_label) {
     if (!generate_code) return;
     
-    emit_line("L%d:", end_label);
+    decrease_indent();
+    emit_line("}");
     emit_line("// fim if");
 }
 

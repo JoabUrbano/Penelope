@@ -481,7 +481,12 @@ ExpressionResult* evaluate_binary_expression(ExpressionResult* left, ExpressionR
             }
         }
     } else if (strcmp(operation, "%") == 0 && strcmp(result_type, "int") == 0) {
-        result->intVal = left->intVal % right->intVal;
+        // Only evaluate modulo for constants, not variables
+        if (!left->c_code && !right->c_code && right->intVal != 0) {
+            result->intVal = left->intVal % right->intVal;
+        } else {
+            result->intVal = 0; // Default value - actual computation will be done in C code
+        }
     }
 
     return result;

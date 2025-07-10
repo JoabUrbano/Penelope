@@ -235,7 +235,12 @@ simple_stmt:
     | expression SEMICOLON {
         if (exec_block) {
             // Executa a expressão apenas se for dentro de bloco válido
+            // Se for uma chamada de função, emite o código C
+            if ($1 && $1->c_code) {
+                emit_line("%s;", $1->c_code);
+            }
         }
+        free_expression_result($1);
     }
     | BREAK SEMICOLON {
         if (exec_block) {
