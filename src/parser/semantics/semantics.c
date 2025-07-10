@@ -456,13 +456,10 @@ ExpressionResult* evaluate_binary_expression(ExpressionResult* left, ExpressionR
                 strcat(result->strVal, right->strVal);
             }
         }
+    } else if (strcmp(operation, "%") == 0 && strcmp(result_type, "int") == 0) {
+        result->intVal = left->intVal % right->intVal;
     }
-    else if (strcmp(operation, "%") == 0 && strcmp(result_type, "int") == 0) {
-    result->intVal = left->intVal % right->intVal;
-}
 
-    // Outras operações seriam implementadas similarmente...
-    
     return result;
 }
 
@@ -470,27 +467,33 @@ ExpressionResult* evaluate_unary_expression(ExpressionResult* expr, const char* 
     if (!validate_unary_operation(expr, operation)) {
         return NULL;
     }
-    
+
     ExpressionResult* result = malloc(sizeof(ExpressionResult));
     if (!result) {
         semantic_error("Erro de alocação de memória para resultado de expressão");
         return NULL;
     }
-    
+
     result->type = strdup(expr->type);
-    result->c_code = NULL;
     result->strVal = NULL;
-    
+
+    // Gerar código C para a operação unária
+    char* expr_code = expr->c_code ? expr->c_code : expression_to_c_code(expr);
+    int code_len = strlen(expr_code) + 5;
+    result->c_code = malloc(code_len);
+
     if (strcmp(operation, "-") == 0) {
         if (strcmp(expr->type, "int") == 0) {
             result->intVal = -expr->intVal;
         } else if (strcmp(expr->type, "float") == 0) {
             result->doubleVal = -expr->doubleVal;
         }
+        snprintf(result->c_code, code_len, "(-%s)", expr_code);
     } else if (strcmp(operation, "!") == 0) {
         result->intVal = !expr->intVal;
+        snprintf(result->c_code, code_len, "(!%s)", expr_code);
     }
-    
+
     return result;
 }
 
