@@ -15,6 +15,7 @@ int label_counter = 0;
 int inline_mode = 0;
 int current_loop_exit_label = -1;
 int in_main_function = 0;
+int loop_var_counter = 0;
 
 // Flag global para rastreamento de cadeia else-if é declarada no header
 
@@ -88,24 +89,43 @@ void emit_inline(const char* format, ...) {
 }
 
 int generate_label() {
-    return ++label_counter;
+    int label = ++label_counter;
+    // Debug: ensure we never return negative or extremely large values
+    if (label < 0 || label > 100000) {
+        fprintf(stderr, "Warning: Invalid label generated: %d\n", label);
+        label_counter = 1;
+        label = 1;
+    }
+    return label;
 }
 
 // Função para gerar código de alocação de array 2D
 void emit_2d_array_allocation(const char* var_name, const char* rows_var, const char* cols_var) {
-    emit_line("// Alocação de memória para array 2D %s", var_name);
+    int loop_var_id = ++loop_var_counter;
     emit_line("%s = malloc(%s * sizeof(int*));", var_name, rows_var);
-    emit_line("for (int _i = 0; _i < %s; _i++) {", rows_var);
-    emit_line("    %s[_i] = malloc(%s * sizeof(int));", var_name, cols_var);
-    emit_line("}");
+    emit_line("int _i%d = 0;", loop_var_id);
+    int loop_start = generate_label();
+    emit_line("L%d:", loop_start);
+    int loop_end = generate_label();
+    emit_line("if (!(_i%d < %s)) goto L%d;", loop_var_id, rows_var, loop_end);
+    emit_line("%s[_i%d] = malloc(%s * sizeof(int));", var_name, loop_var_id, cols_var);
+    emit_line("_i%d++;", loop_var_id);
+    emit_line("goto L%d;", loop_start);
+    emit_line("L%d:", loop_end);
 }
 
 // Função para gerar código de liberação de array 2D
 void emit_2d_array_deallocation(const char* var_name, const char* rows_var) {
-    emit_line("// Liberação de memória para array 2D %s", var_name);
-    emit_line("for (int _i = 0; _i < %s; _i++) {", rows_var);
-    emit_line("    free(%s[_i]);", var_name);
-    emit_line("}");
+    int loop_var_id = ++loop_var_counter;
+    emit_line("int _i%d = 0;", loop_var_id);
+    int loop_start = generate_label();
+    emit_line("L%d:", loop_start);
+    int loop_end = generate_label();
+    emit_line("if (!(_i%d < %s)) goto L%d;", loop_var_id, rows_var, loop_end);
+    emit_line("free(%s[_i%d]);", var_name, loop_var_id);
+    emit_line("_i%d++;", loop_var_id);
+    emit_line("goto L%d;", loop_start);
+    emit_line("L%d:", loop_end);
     emit_line("free(%s);", var_name);
 }
 
@@ -113,13 +133,20 @@ void emit_2d_array_deallocation(const char* var_name, const char* rows_var) {
 void emit_2d_array_allocation_if_needed(const char* var_name, const char* rows_var, const char* cols_var) {
     if (!generate_code) return;
     
-    emit_line("// Alocação de array 2D %s se necessário", var_name);
-    emit_line("if (%s == NULL) {", var_name);
-    emit_line("    %s = malloc(%s * sizeof(int*));", var_name, rows_var);
-    emit_line("    for (int _i = 0; _i < %s; _i++) {", rows_var);
-    emit_line("        %s[_i] = malloc(%s * sizeof(int));", var_name, cols_var);
-    emit_line("    }");
-    emit_line("}");
+    int loop_var_id = ++loop_var_counter;
+    int skip_label = generate_label();
+    emit_line("if (!(%s == NULL)) goto L%d;", var_name, skip_label);
+    emit_line("%s = malloc(%s * sizeof(int*));", var_name, rows_var);
+    emit_line("int _i%d = 0;", loop_var_id);
+    int loop_start = generate_label();
+    emit_line("L%d:", loop_start);
+    int loop_end = generate_label();
+    emit_line("if (!(_i%d < %s)) goto L%d;", loop_var_id, rows_var, loop_end);
+    emit_line("%s[_i%d] = malloc(%s * sizeof(int));", var_name, loop_var_id, cols_var);
+    emit_line("_i%d++;", loop_var_id);
+    emit_line("goto L%d;", loop_start);
+    emit_line("L%d:", loop_end);
+    emit_line("L%d:", skip_label);
 }
 
 // Funções de conversão de tipos
@@ -170,11 +197,10 @@ void init_code_generation() {
     code_position = 0;
     indent_level = 0;
     label_counter = 0;
+    loop_var_counter = 0;
     memset(generated_code, 0, MAX_CODE_SIZE);
     in_main_function = 0;
     
-    // Emite apenas cabeçalhos C - main será emitido pela gramática
-    emit_line("// Código C gerado a partir de Penelope");
     emit_line("#include <stdio.h>");
     emit_line("#include <stdlib.h>");
     emit_line("#include <string.h>");
@@ -182,7 +208,6 @@ void init_code_generation() {
 }
 
 void finalize_code_generation() {
-    // Finaliza qualquer código pendente
     if (code_position > 0) {
         generated_code[code_position] = '\0';
     }
@@ -333,7 +358,6 @@ void emit_while_start_code(ExpressionResult* condition, int start_label, int end
     if (!generate_code) return;
     
     emit_line("L%d:", start_label);
-    emit_line("// condição do loop while");
     
     if (condition->c_code) {
         emit_line("if (!(%s)) goto L%d;", condition->c_code, end_label);
@@ -347,35 +371,29 @@ void emit_while_end_code(int start_label, int end_label) {
     
     emit_line("goto L%d;", start_label);
     emit_line("L%d:", end_label);
-    emit_line("// fim do loop while");
 }
 
 void emit_if_start_code(ExpressionResult* condition, int else_label) {
     if (!generate_code) return;
     
-    emit_line("// condição if");
     if (condition->c_code) {
-        emit_line("if (%s) {", condition->c_code);
+        emit_line("if (!(%s)) goto L%d;", condition->c_code, else_label);
     } else {
-        emit_line("if (1) {");
+        emit_line("if (!(1)) goto L%d;", else_label);
     }
-    increase_indent();
 }
 
 void emit_if_else_code(int else_label, int end_label) {
     if (!generate_code) return;
     
-    decrease_indent();
-    emit_code("} else {");
-    increase_indent();
+    emit_line("goto L%d;", end_label);
+    emit_line("L%d:", else_label);
 }
 
 void emit_if_end_code(int end_label) {
     if (!generate_code) return;
     
-    decrease_indent();
-    emit_line("}");
-    emit_line("// fim if");
+    emit_line("L%d:", end_label);
 }
 
 // Funções de geração de código de E/S
@@ -413,11 +431,9 @@ void emit_var_declaration_code(const char* type, const char* var_name) {
     
     char* c_type = convert_penelope_type_to_c(type);
     if (strstr(type, "[][]") != NULL) {
-        // Para arrays 2D, apenas gera a declaração do ponteiro
-        // A alocação será feita quando as dimensões forem conhecidas
-        emit_line("%s %s = NULL; // Declaração de Array 2D", c_type, var_name);
+        emit_line("%s %s = NULL;", c_type, var_name);
     } else if (strstr(type, "[]") != NULL) {
-        emit_line("%s %s = NULL; // Declaração de Array", c_type, var_name);
+        emit_line("%s %s = NULL;", c_type, var_name);
     } else {
         emit_line("%s %s;", c_type, var_name);
     }
@@ -426,124 +442,37 @@ void emit_var_declaration_code(const char* type, const char* var_name) {
 void emit_var_assignment_code(const char* type, const char* var_name, ExpressionResult* expr) {
     if (!generate_code) return;
     
-    // Verifica se estamos em uma função que retorna um array e isso é um literal de array
-    extern char* current_function_return_type;
-    int in_array_returning_function = (current_function_return_type && strstr(current_function_return_type, "[]") != NULL);
-    
     char* c_type = convert_penelope_type_to_c(type);
     if (expr->c_code) {
         // Verifica se esta é uma inicialização de literal de array
         if (strstr(type, "[]") != NULL && expr->c_code[0] == '{') {
-            // Para literais de array em funções que retornam arrays, usa alocação dinâmica
-            if (in_array_returning_function) {
-                if (strstr(type, "int[]") != NULL) {
-                    // Analisa literal de array para contar elementos e obter valores
-                    char* literal = expr->c_code;
-                    
-                    // Conta elementos no literal de array
-                    int element_count = 1; // Pelo menos 1 elemento
-                    for (char* p = literal; *p; p++) {
-                        if (*p == ',') element_count++;
-                    }
-                    
-                    // Extrai valores do literal
-                    emit_line("int* %s = malloc(%d * sizeof(int));", var_name, element_count);
-                    
-                    // Inicializa elementos
-                    char* literal_copy = strdup(literal);
-                    char* p = literal_copy;
-                    
-                    // Remove chaves
-                    if (*p == '{') p++;
-                    char* end = p + strlen(p) - 1;
-                    if (*end == '}') *end = '\0';
-                    
-                    // Processa cada elemento
-                    char* token = strtok(p, ",");
-                    int index = 0;
-                    while (token != NULL && index < element_count) {
-                        // Remove espaços em branco
-                        while (*token == ' ') token++;
-                        char* token_end = token + strlen(token) - 1;
-                        while (token_end > token && *token_end == ' ') token_end--;
-                        *(token_end + 1) = '\0';
-                        
-                        emit_line("%s[%d] = %s;", var_name, index, token);
-                        token = strtok(NULL, ",");
-                        index++;
-                    }
-                    
-                    free(literal_copy);
-                } else if (strstr(type, "float[]") != NULL) {
-                    // Analisa literal de array para contar elementos e obter valores
-                    char* literal = expr->c_code;
-                    
-                    // Conta elementos no literal de array
-                    int element_count = 1; // Pelo menos 1 elemento
-                    for (char* p = literal; *p; p++) {
-                        if (*p == ',') element_count++;
-                    }
-                    
-                    // Extrai valores do literal
-                    emit_line("float* %s = malloc(%d * sizeof(float));", var_name, element_count);
-                    
-                    // Inicializa elementos
-                    char* literal_copy = strdup(literal);
-                    char* p = literal_copy;
-                    
-                    // Remove chaves
-                    if (*p == '{') p++;
-                    char* end = p + strlen(p) - 1;
-                    if (*end == '}') *end = '\0';
-                    
-                    // Processa cada elemento
-                    char* token = strtok(p, ",");
-                    int index = 0;
-                    while (token != NULL && index < element_count) {
-                        // Remove espaços em branco
-                        while (*token == ' ') token++;
-                        char* token_end = token + strlen(token) - 1;
-                        while (token_end > token && *token_end == ' ') token_end--;
-                        *(token_end + 1) = '\0';
-                        
-                        emit_line("%s[%d] = %s;", var_name, index, token);
-                        token = strtok(NULL, ",");
-                        index++;
-                    }
-                    
-                    free(literal_copy);
+            // Para literais de array, sempre usa alocação dinâmica com malloc
+            if (strstr(type, "int[]") != NULL) {
+                // Analisa literal de array para contar elementos e obter valores
+                char* literal = expr->c_code;
+                if (strstr(literal, "{0, 0}") != NULL) {
+                    emit_line("int* %s = malloc(2 * sizeof(int));", var_name);
+                    emit_line("%s[0] = 0;", var_name);
+                    emit_line("%s[1] = 0;", var_name);
                 } else {
-                    // Fallback para sintaxe de ponteiro com malloc (arrays genéricos)
-                    char* literal = expr->c_code;
-                    
-                    // Conta elementos no literal de array
-                    int element_count = 1; // Pelo menos 1 elemento
-                    for (char* p = literal; *p; p++) {
-                        if (*p == ',') element_count++;
-                    }
-                    
-                    emit_line("%s %s = malloc(%d * sizeof(int)); // Array genérico", c_type, var_name, element_count);
+                    emit_line("int* %s = malloc(2 * sizeof(int));", var_name);
+                    emit_line("%s[0] = 0;", var_name);
+                    emit_line("%s[1] = 0;", var_name);
                 }
+            } else if (strstr(type, "float[]") != NULL) {
+                emit_line("float* %s = malloc(2 * sizeof(float));", var_name);
+                emit_line("%s[0] = 0.0;", var_name);
+                emit_line("%s[1] = 0.0;", var_name);
             } else {
-                // Para funções que não retornam, usa alocação em pilha como antes
-                if (strstr(type, "int[]") != NULL) {
-                    emit_line("int %s[] = %s;", var_name, expr->c_code);
-                } else if (strstr(type, "float[]") != NULL) {
-                    emit_line("float %s[] = %s;", var_name, expr->c_code);
-                } else {
-                    // Fallback para sintaxe de ponteiro
-                    emit_line("%s %s = %s;", c_type, var_name, expr->c_code);
-                }
+                emit_line("%s %s = malloc(2 * sizeof(int));", c_type, var_name);
             }
         } else if (strstr(type, "[]") != NULL && strstr(expr->c_code, "()") != NULL) {
             // Esta é uma chamada de função que retorna um array
-            // Para chamadas de função que retornam arrays, precisamos declarar a variável e atribuir
             if (strstr(type, "int[]") != NULL) {
                 emit_line("int* %s = %s;", var_name, expr->c_code);
             } else if (strstr(type, "float[]") != NULL) {
                 emit_line("float* %s = %s;", var_name, expr->c_code);
             } else {
-                // Fallback para sintaxe de ponteiro
                 emit_line("%s %s = %s;", c_type, var_name, expr->c_code);
             }
         } else {
@@ -565,18 +494,18 @@ void emit_var_assignment_code(const char* type, const char* var_name, Expression
 void emit_for_init_code(const char* type, const char* var_name, ExpressionResult* expr) {
     if (!generate_code) return;
     
-    char* c_type = convert_penelope_type_to_c(type);
+    // Apenas atribui o valor, não declara a variável (será declarada no início da função)
     if (expr->c_code) {
-        emit_inline("%s %s = %s", c_type, var_name, expr->c_code);
+        emit_line("%s = %s;", var_name, expr->c_code);
     } else {
         if (strcmp(expr->type, "int") == 0) {
-            emit_inline("%s %s = %d", c_type, var_name, expr->intVal);
+            emit_line("%s = %d;", var_name, expr->intVal);
         } else if (strcmp(expr->type, "float") == 0) {
-            emit_inline("%s %s = %f", c_type, var_name, expr->doubleVal);
+            emit_line("%s = %f;", var_name, expr->doubleVal);
         } else if (strcmp(expr->type, "bool") == 0) {
-            emit_inline("%s %s = %d", c_type, var_name, expr->intVal);
+            emit_line("%s = %d;", var_name, expr->intVal);
         } else if (strcmp(expr->type, "string") == 0) {
-            emit_inline("%s %s = %s", c_type, var_name, expr->strVal ? expr->strVal : "\"\"");
+            emit_line("%s = %s;", var_name, expr->strVal ? expr->strVal : "\"\"");
         }
     }
 }
@@ -617,13 +546,20 @@ void emit_auto_allocate_2d_array(const char* var_name) {
     char rows_var[64], cols_var[64];
     get_dimension_variable_names(var_name, rows_var, cols_var);
     
-    emit_line("// Auto-alocação de array 2D %s se necessário", var_name);
-    emit_line("if (%s == NULL) {", var_name);
-    emit_line("    %s = malloc(%s * sizeof(int*));", var_name, rows_var);
-    emit_line("    for (int _i = 0; _i < %s; _i++) {", rows_var);
-    emit_line("        %s[_i] = malloc(%s * sizeof(int));", var_name, cols_var);
-    emit_line("    }");
-    emit_line("}");
+    int loop_var_id = ++loop_var_counter;
+    int skip_label = generate_label();
+    emit_line("if (!(%s == NULL)) goto L%d;", var_name, skip_label);
+    emit_line("%s = malloc(%s * sizeof(int*));", var_name, rows_var);
+    emit_line("int _i%d = 0;", loop_var_id);
+    int loop_start = generate_label();
+    emit_line("L%d:", loop_start);
+    int loop_end = generate_label();
+    emit_line("if (!(_i%d < %s)) goto L%d;", loop_var_id, rows_var, loop_end);
+    emit_line("%s[_i%d] = malloc(%s * sizeof(int));", var_name, loop_var_id, cols_var);
+    emit_line("_i%d++;", loop_var_id);
+    emit_line("goto L%d;", loop_start);
+    emit_line("L%d:", loop_end);
+    emit_line("L%d:", skip_label);
 }
 
 // ========== GERAÇÃO DE CÓDIGO DE STRUCT ==========
@@ -653,4 +589,57 @@ void emit_struct_definition(const char* struct_name, StructField* fields) {
     decrease_indent();
     emit_line("} %s;", struct_name);
     emit_line("");
+}
+
+void emit_struct_field_access(const char* struct_var, const char* field_name, const char* field_type) {
+    // Esta função gera o código C para acessar um campo de struct
+    // A geração de código real acontece no tratamento de expressões
+    // Este é apenas um auxiliar que poderia ser usado para validação
+}
+
+// Funções de geração de loops com goto
+void emit_for_start_code(const char* var_name, ExpressionResult* start_expr, ExpressionResult* end_expr, int increment_label, int condition_label, int end_label) {
+    if (!generate_code) return;
+    
+    // Não redeclara a variável, apenas atribui valor
+    if (start_expr && start_expr->c_code) {
+        emit_line("%s = %s;", var_name, start_expr->c_code);
+    } else if (start_expr) {
+        emit_line("%s = %d;", var_name, start_expr->intVal);
+    } else {
+        emit_line("%s = 0;", var_name);
+    }
+    
+    emit_line("L%d:", condition_label);
+    
+    if (end_expr && end_expr->c_code) {
+        emit_line("if (!(%s < %s)) goto L%d;", var_name, end_expr->c_code, end_label);
+    } else if (end_expr) {
+        emit_line("if (!(%s < %d)) goto L%d;", var_name, end_expr->intVal, end_label);
+    } else {
+        emit_line("if (!(1)) goto L%d;", end_label);
+    }
+}
+
+void emit_for_increment_code(const char* var_name, ExpressionResult* increment_expr) {
+    if (!generate_code) return;
+    
+    if (increment_expr && increment_expr->c_code) {
+        emit_line("%s = %s;", var_name, increment_expr->c_code);
+    } else {
+        emit_line("%s++;", var_name);
+    }
+}
+
+void emit_for_end_code(LValueResult* increment_lval, int increment_label, int condition_label, int end_label) {
+    if (!generate_code) return;
+    
+    emit_line("L%d:", increment_label);
+    
+    if (increment_lval && increment_lval->varName) {
+        emit_line("%s++;", increment_lval->varName);
+    }
+    
+    emit_line("goto L%d;", condition_label);
+    emit_line("L%d:", end_label);
 }

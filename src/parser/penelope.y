@@ -8,11 +8,15 @@
 #include "../src/utils/uniqueIdentifier/uniqueIdentifier.h"
 #include "../src/structs/lvalue/lvalueResult.h"
 
+// Forward declarations for Bison
 extern int yylineno;
 extern int yylex();
 extern void yyerror(const char* s);
 
-// Coleta de parâmetros para assinaturas de função
+// External variable for loop increment tracking
+extern char* current_loop_increment_var;
+
+// Parameter collection for function signatures
 typedef struct FunctionParam {
     char* type;
     char* name;
@@ -23,7 +27,7 @@ FunctionParam* current_function_params = NULL;
 char* current_function_name = NULL;
 char* current_function_return_type = NULL;
 
-// Coleta de argumentos para chamadas de função
+// Argument collection for function calls
 typedef struct FunctionArg {
     char* code;
     struct FunctionArg* next;
@@ -31,11 +35,11 @@ typedef struct FunctionArg {
 
 FunctionArg* current_function_args = NULL;
 
-// Análise de definição de structs
+// Struct definition parsing
 char* current_struct_name = NULL;
 StructField* current_struct_fields = NULL;
 
-// Declarações antecipadas para funções auxiliares
+// Forward declarations for helper functions
 void add_function_parameter(const char* type, const char* name);
 void clear_function_parameters();
 void clear_function_context();
@@ -123,15 +127,15 @@ decl_or_fun:
 
 fun:
     FUN type ID LPAREN {
-        // Armazena informações da função para coleta de parâmetros
+        // Store function information for parameter collection
         current_function_name = strdup($3);
         current_function_return_type = strdup($2);
-        clear_function_parameters(); // Limpa parâmetros anteriores
+        clear_function_parameters(); // Clear any previous parameters
         
         // Armazena informações da função na tabela de símbolos
         store_function($3, $2);
         
-        // Sempre habilita geração de código para todas as funções
+        // Always enable code generation for all functions
         enable_code_generation();
         
         // Verifica se é a função main
@@ -145,8 +149,8 @@ fun:
         char *scopeId = uniqueIdentifier();
         push_scope(scopeId);
     } list_param_opt RPAREN LBRACE {
-        // Agora emite a assinatura da função com todos os parâmetros coletados
-        // Passa as informações da função diretamente em vez de usar variáveis globais
+        // Now emit the function signature with all collected parameters
+        // Pass the function information directly instead of using global variables
         emit_function_signature_with_info($2, $3);
     } list_stmt RBRACE {
         // Remove o escopo da função
@@ -161,7 +165,7 @@ fun:
             emit_line("}");
         }
         
-        // Limpa parâmetros e contexto da função
+        // Clear function parameters and context
         clear_function_parameters();
         clear_function_context();
         in_main_function = 0;
@@ -170,20 +174,20 @@ fun:
 
 struct_def:
     STRUCT ID LBRACE {
-        // Inicia coleta de campos do struct
+        // Start collecting struct fields
         current_struct_name = strdup($2);
         current_struct_fields = NULL;
     } struct_field_list RBRACE {
-        // Define o struct na tabela de símbolos
+        // Define the struct in the symbol table
         define_struct(current_struct_name, current_struct_fields);
         
-        // Gera definição do struct em C
+        // Generate C struct definition
         emit_struct_definition(current_struct_name, current_struct_fields);
         
-        // Limpa recursos
+        // Clean up
         free(current_struct_name);
         current_struct_name = NULL;
-        current_struct_fields = NULL; // Não libera aqui, agora pertence à tabela de símbolos
+        current_struct_fields = NULL; // Don't free here, it's owned by the symbol table now
     }
     ;
 
@@ -196,7 +200,7 @@ struct_field_list:
 
 struct_field:
     type ID SEMICOLON {
-        // Adiciona campo ao struct atual
+        // Add field to current struct
         add_struct_field(&current_struct_fields, $2, $1);
     }
     ;
@@ -310,37 +314,66 @@ for_stmt:
         char *scopeId = uniqueIdentifier();
         push_scope(scopeId);
         
-        // Gera código C para início do for
-        if (generate_code) {
-            emit_code("for (");
-            set_inline_mode(1); // Próximas emissões na mesma linha
-        }
+        // Generate labels for the loop
+        int condition_label = generate_label();
+        int end_label = generate_label();
+        
+        // Store condition label in union
+        $<labelNum>$ = condition_label;
+        
+        // Set the exit label for break statements
+        extern int current_loop_exit_label;
+        current_loop_exit_label = end_label;
     } LPAREN for_init SEMICOLON {
-        // Adiciona o primeiro semicolon do for
+        // Emit condition label
         if (generate_code) {
-            emit_inline("; ");
+            int condition_label = $<labelNum>2;
+            emit_line("L%d:", condition_label);
         }
+        
+        // Store end label for condition check (reuse the same one)
+        extern int current_loop_exit_label;
+        $<labelNum>$ = current_loop_exit_label;
     } expression {
-        // Adiciona a condição do for
+        // Emit condition check with goto to end
         if (generate_code) {
             char* condition_code = $7->c_code ? $7->c_code : expression_to_c_code($7);
-            emit_inline("%s; ", condition_code);
+            int end_label = $<labelNum>6;
+            emit_line("if (!(%s)) goto L%d;", condition_code, end_label);
         }
         free_expression_result($7);
-    } SEMICOLON assign_stmt RPAREN {
-        // Fecha o cabeçalho do for
+    } SEMICOLON {
+        // Disable code generation for the increment statement parsing
+        // We'll handle the increment manually at the end
+        disable_code_generation();
+    } assign_stmt {
+        // Re-enable code generation after parsing increment
+        enable_code_generation();
+    } RPAREN LBRACE list_stmt RBRACE {
+        // Emit increment and loop structure
         if (generate_code) {
-            emit_inline(") {");
-            set_inline_mode(0);
-            emit_line("");  // Adiciona a quebra de linha
-            increase_indent();
+            int condition_label = $<labelNum>2;
+            int end_label = $<labelNum>6;
+            
+            // Emit the stored increment (after loop body)
+            extern char* pop_loop_increment_var();
+            char* increment_var = pop_loop_increment_var();
+            if (increment_var) {
+                emit_line("%s++;", increment_var);
+                free(increment_var);
+            } else {
+                // Debug: print a message if no increment var was stored
+                fprintf(stderr, "Warning: No increment variable stored for for loop\n");
+            }
+            
+            emit_line("goto L%d;", condition_label);
+            emit_line("L%d:", end_label);
         }
-    } LBRACE list_stmt RBRACE {
-        // Fecha o bloco do for
-        if (generate_code) {
-            decrease_indent();
-            emit_line("}");
-        }
+        
+        // Reset the exit label after loop ends
+        extern int current_loop_exit_label;
+        current_loop_exit_label = -1;
+        
         pop_scope();
     }
     ;
@@ -368,10 +401,10 @@ decl:
 type:
     TYPE                                { $$ = $1;}
     | ID                                { 
-                                            // Isso pode ser um tipo struct
+                                            // This could be a struct type
                                             StructDefinition* struct_def = find_struct_definition($1);
                                             if (struct_def) {
-                                                $$ = strdup($1); //
+                                                $$ = strdup($1); // It's a valid struct type
                                             } else {
                                                 semantic_error("Tipo não definido: '%s'", $1);
                                                 YYABORT;
@@ -507,7 +540,7 @@ lvalue:
         // Para acesso a array, verifica se o lvalue é um array e retorna o tipo do elemento
         
         if ($1->type == LVALUE_ARRAY_ACCESS) {
-            // Acesso a array multidimensional: arr[i][j]
+            // Multidimensional array access: arr[i][j]
             // Aumenta o número de dimensões
             char** newIndices = malloc(($1->dimensionCount + 1) * sizeof(char*));
             
@@ -544,7 +577,7 @@ lvalue:
             free_expression_result($3);
             
         } else if ($1->type == LVALUE_VAR) {
-            // Acesso a array unidimensional: arr[i]
+            // Single-dimensional array access: arr[i]
             Data* arrayNode = find_variable_in_scopes($1->varName);
             if (!arrayNode) {
                 semantic_error("Variável '%s' não declarada.", $1->varName);
@@ -847,6 +880,10 @@ void emit_function_signature() {
     if (strcmp(current_function_name, "main") == 0) {
         emit_line("int main() {");
         increase_indent();
+        // Declare common loop variables once at function level
+        emit_line("int i;");
+        emit_line("int j;");
+        emit_line("int k;");
         return;
     }
     
@@ -895,6 +932,10 @@ void emit_function_signature_with_info(const char* return_type, const char* func
     if (strcmp(function_name, "main") == 0) {
         emit_line("int main() {");
         increase_indent();
+        // Declare common loop variables once at function level
+        emit_line("int i;");
+        emit_line("int j;");
+        emit_line("int k;");
         return;
     }
     
@@ -980,3 +1021,8 @@ char* get_function_arguments() {
     
     return result;
 }
+
+/* Regras para definição de structs */
+
+
+

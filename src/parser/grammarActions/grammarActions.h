@@ -41,6 +41,10 @@ void handle_assignment(LValueResult* lval, ExpressionResult* expr);
 void handle_increment(LValueResult* lval);
 void handle_decrement(LValueResult* lval);
 
+// Functions for managing loop increment variables in nested loops
+void push_loop_increment_var(const char* var_name);
+char* pop_loop_increment_var();
+
 // Funções de ações da gramática para controle de fluxo
 int handle_if_start(ExpressionResult* condition);
 void handle_if_end(int label);

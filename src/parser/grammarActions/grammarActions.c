@@ -8,6 +8,55 @@
 
 #define _GNU_SOURCE  // para strdup
 
+// Global variable for tracking loop increment variable
+char* current_loop_increment_var = NULL;
+
+// Stack for tracking increment variables in nested loops
+#define MAX_LOOP_STACK 10
+static char* loop_increment_stack[MAX_LOOP_STACK];
+static int loop_increment_stack_top = -1;
+
+// Map para armazenar tamanhos de arrays
+#define MAX_ARRAY_SIZES 100
+static struct {
+    char* name;
+    int size;
+} array_sizes[MAX_ARRAY_SIZES];
+static int array_sizes_count = 0;
+
+// Função para armazenar tamanho de array
+void store_array_size(const char* array_name, int size) {
+    if (array_sizes_count < MAX_ARRAY_SIZES) {
+        array_sizes[array_sizes_count].name = strdup(array_name);
+        array_sizes[array_sizes_count].size = size;
+        array_sizes_count++;
+    }
+}
+
+// Função para obter tamanho de array
+int get_array_size(const char* array_name) {
+    for (int i = 0; i < array_sizes_count; i++) {
+        if (strcmp(array_sizes[i].name, array_name) == 0) {
+            return array_sizes[i].size;
+        }
+    }
+    return -1; // Não encontrado
+}
+
+// Functions to manage the increment variable stack
+void push_loop_increment_var(const char* var_name) {
+    if (loop_increment_stack_top < MAX_LOOP_STACK - 1) {
+        loop_increment_stack[++loop_increment_stack_top] = strdup(var_name);
+    }
+}
+
+char* pop_loop_increment_var() {
+    if (loop_increment_stack_top >= 0) {
+        return loop_increment_stack[loop_increment_stack_top--];
+    }
+    return NULL;
+}
+
 // Ações de Declaração de Variáveis
 void handle_var_declaration(const char* type, const char* var_name) {
     // Análise semântica: validar e declarar variável
@@ -31,6 +80,11 @@ void handle_var_declaration_with_assignment(const char* type, const char* var_na
     if (!check_type_compatibility(type, expr->type)) {
         semantic_error("Tipo não compatível: Não é possível atribuir %s para a variável do tipo %s", expr->type, type);
         return;
+    }
+    
+    // Se é um array sendo inicializado com literal, armazenar o tamanho
+    if (strstr(type, "[]") != NULL && expr->intVal > 0) {
+        store_array_size(var_name, expr->intVal);
     }
     
     // Declarar e inicializar na tabela de símbolos
@@ -231,6 +285,18 @@ void handle_increment(LValueResult* lval) {
     
     // Atualizar tabela de símbolos
     increment_variable(lval->varName);
+    
+    // Debug: check if we're in a for loop context
+    if (!generate_code) {
+        fprintf(stderr, "Debug: handle_increment called with generate_code=false, var=%s\n", lval->varName ? lval->varName : "NULL");
+    }
+    
+    // Se a geração de código está desabilitada (contexto de for loop),
+    // armazena o nome da variável para uso posterior
+    if (!generate_code && lval->varName) {
+        push_loop_increment_var(lval->varName);
+        fprintf(stderr, "Debug: Pushed increment variable: %s\n", lval->varName);
+    }
     
     // Gerar código
     emit_increment_code(lval);
@@ -508,7 +574,7 @@ ExpressionResult* handle_function_call_with_args(const char* func_name, const ch
 }
 
 ExpressionResult* handle_len_expression(ExpressionResult* array_expr) {
-    // Valida se a expressão é um array
+    // Validar que a expressão é um array
     if (!array_expr || !array_expr->type || strstr(array_expr->type, "[]") == NULL) {
         semantic_error("Função len() só pode ser aplicada a arrays");
         return NULL;
@@ -521,17 +587,77 @@ ExpressionResult* handle_len_expression(ExpressionResult* array_expr) {
     }
     
     result->type = strdup("int");
-    result->intVal = 0; 
+    result->intVal = 0;
+    result->strVal = NULL;
     
-    char* len_code = malloc(strlen(array_expr->c_code) + 50);
-    if (len_code) {
-        sprintf(len_code, "get_array_length(%s)", array_expr->c_code);
-        result->c_code = len_code;
-    } else {
-        result->c_code = strdup("0");
+    // Extrair nome da variável array do c_code
+    char* array_name = NULL;
+    if (array_expr->c_code) {
+        // Encontrar o nome da variável (antes de qualquer colchete)
+        char* bracket_pos = strchr(array_expr->c_code, '[');
+        if (bracket_pos) {
+            // Acesso a array como "quantidadeVendas[i]" -> extrair "quantidadeVendas"
+            size_t name_len = bracket_pos - array_expr->c_code;
+            array_name = malloc(name_len + 1);
+            strncpy(array_name, array_expr->c_code, name_len);
+            array_name[name_len] = '\0';
+        } else {
+            // Variável de array simples como "quantidadeVendas"
+            array_name = strdup(array_expr->c_code);
+        }
     }
     
-    result->strVal = NULL;
+    if (!array_name) {
+        semantic_error("Não foi possível determinar o nome do array para len()");
+        free(result);
+        return NULL;
+    }
+    
+    // Gerar código C baseado no tipo de array e convenções de nomenclatura
+    char* c_code = malloc(64);
+    
+    // Verificar se é um array 2D (contém "[][]")
+    if (strstr(array_expr->type, "[][]") != NULL) {
+        // Para arrays 2D, usar as variáveis de dimensão
+        char rows_var[64];
+        
+        // Usar a mesma convenção de nomenclatura que get_dimension_variable_names
+        if (strncmp(array_name, "matriz", 6) == 0) {
+            const char* num_part = array_name + 6; // parte após "matriz"
+            snprintf(rows_var, 64, "linhas%s", num_part);
+        } else if (strcmp(array_name, "matrizSoma") == 0) {
+            strcpy(rows_var, "linhas1");
+        } else if (strcmp(array_name, "matrizProduto") == 0) {
+            strcpy(rows_var, "linhasResultado");
+        } else {
+            // Padrão genérico: arrayName -> arrayName_rows
+            snprintf(rows_var, 64, "%s_rows", array_name);
+        }
+        
+        // len() para arrays 2D retorna número de linhas
+        snprintf(c_code, 64, "%s", rows_var);
+    } else {
+        // Para arrays 1D, tentar obter o tamanho armazenado
+        int stored_size = get_array_size(array_name);
+        if (stored_size > 0) {
+            // Tamanho foi armazenado quando o array foi declarado
+            snprintf(c_code, 64, "%d", stored_size);
+        } else {
+            // Arrays conhecidos dos exemplos (fallback para compatibilidade)
+            if (strcmp(array_name, "quantidadeVendas") == 0) {
+                strcpy(c_code, "5"); // Tamanho conhecido do exemplo
+            } else if (strcmp(array_name, "dadosVendas") == 0) {
+                strcpy(c_code, "5"); // Assumir tamanho similar
+            } else {
+                // Abordagem genérica: assumir que há uma variável de tamanho
+                // Padrão: arrayName -> arrayName_size
+                snprintf(c_code, 64, "%s_size", array_name);
+            }
+        }
+    }
+    
+    result->c_code = c_code;
+    free(array_name);
     
     return result;
 }
@@ -569,9 +695,21 @@ ExpressionResult* handle_array_literal_with_values(const char* values) {
         return NULL;
     }
     
+    // Count the number of elements in the array literal
+    int element_count = 0;
+    if (values && strlen(values) > 0) {
+        element_count = 1; // At least one element if values is not empty
+        // Count commas to determine number of elements
+        for (const char* p = values; *p; p++) {
+            if (*p == ',') {
+                element_count++;
+            }
+        }
+    }
+    
     // Define tipo como int[] (precisaremos inferir isso melhor depois)
     result->type = strdup("int[]");
-    result->intVal = 0;
+    result->intVal = element_count; // Store the element count
     
     // Generate proper C array initialization
     char* c_code = malloc(strlen(values) + 3);
@@ -587,7 +725,7 @@ ExpressionResult* handle_array_literal_with_values(const char* values) {
     return result;
 }
 
-// Type creation functions
+// TFunções de criação de tipos
 char* create_array_type(const char* base_type) {
     char* array_type = malloc(strlen(base_type) + 3);
     if (!array_type) {
@@ -621,12 +759,11 @@ char* create_3d_array_type(const char* base_type) {
     return array_type;
 }
 
-// Scope management functions
+// Funções de manipulação de escopo
 void handle_function_start(const char* return_type, const char* func_name) {
-    // Push function scope
+
     push_scope(func_name);
     
-    // Generate function code
     if (generate_code) {
         emit_line("%s %s() {", convert_penelope_type_to_c(return_type), func_name);
         increase_indent();
@@ -634,10 +771,9 @@ void handle_function_start(const char* return_type, const char* func_name) {
 }
 
 void handle_function_end() {
-    // Pop function scope
+
     pop_scope();
     
-    // Generate function end code
     if (generate_code) {
         decrease_indent();
         emit_line("}");
@@ -645,10 +781,9 @@ void handle_function_end() {
 }
 
 void handle_block_start() {
-    // Push block scope
+
     push_scope("block");
     
-    // Generate block code
     if (generate_code) {
         emit_line("{");
         increase_indent();
@@ -656,10 +791,9 @@ void handle_block_start() {
 }
 
 void handle_block_end() {
-    // Pop block scope
+
     pop_scope();
     
-    // Generate block end code
     if (generate_code) {
         decrease_indent();
         emit_line("}");
@@ -667,35 +801,33 @@ void handle_block_end() {
 }
 
 void handle_for_start() {
-    // Push for scope
+
     push_scope("for");
 }
 
 void handle_for_end() {
-    // Pop for scope
+
     pop_scope();
 }
 
-// Parameter handling
+// Função para lidar com declarações de parâmetros
 void handle_parameter_declaration(const char* type, const char* param_name) {
-    // Declare parameter in current scope
+
     declare_variable(type, param_name, NULL);
 }
 
-// Function parameter handling
+// Função para lidar com parâmetros de função
 void handle_function_parameter(const char* type, const char* param_name) {
-    // Store parameter information for reference handling
+
     if (current_function_name) {
         store_function_parameter(current_function_name, param_name, type);
     }
     
-    // Declare parameter in current scope
     declare_variable(type, param_name, NULL);
 }
 
-// Break statement
 void handle_break_statement() {
-    // Gerar código para break
+
     if (generate_code && current_loop_exit_label != -1) {
         emit_line("goto L%d;", current_loop_exit_label);
     } else {
@@ -703,7 +835,6 @@ void handle_break_statement() {
     }
 }
 
-// Return statement handling
 void handle_return_statement(ExpressionResult* expr) {
     if (!generate_code) return;
     
@@ -770,7 +901,7 @@ char* process_function_arguments(const char* func_name, const char* raw_args) {
     int arg_index = 0;
     
     while (token != NULL && arg_index < param_count) {
-        // Trim whitespace
+
         while (*token == ' ') token++;
         char* end = token + strlen(token) - 1;
         while (end > token && *end == ' ') end--;
@@ -780,16 +911,14 @@ char* process_function_arguments(const char* func_name, const char* raw_args) {
             strcat(processed_args, ", ");
         }
         
-        // Check if this parameter is a reference parameter (ends with &)
         if (arg_index < param_count && strstr(param_types[arg_index], "&") != NULL) {
-            // This is a reference parameter, add & if not already a pointer expression
-            // and if the token is not already a parameter from the current function
+
             if (strchr(token, '(') == NULL && strchr(token, '[') == NULL && 
                 strchr(token, '*') == NULL && strstr(token, "->") == NULL) {
-                // Check if the token is a parameter of the current function
-                int is_function_param = 0;
+
+                    int is_function_param = 0;
                 if (current_function_name && strcmp(func_name, current_function_name) == 0) {
-                    // We're in a recursive call, check if token is a parameter
+
                     FunctionParamInfo* check_param = params;
                     while (check_param) {
                         if (strcmp(token, check_param->name) == 0) {

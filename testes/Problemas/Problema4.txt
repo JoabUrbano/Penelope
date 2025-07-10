@@ -67,9 +67,9 @@ fun void main() {
     print("TESTE DE NÚMEROS RACIONAIS: \n");
     
     // Criar alguns números racionais para teste
-    rational_t: r1 = criar_racional(3, 4);    // 3/4
-    rational_t: r2 = criar_racional(2, 5);    // 2/5
-    rational_t: r3 = criar_racional(6, 8);    // 6/8 (igual a 3/4)
+    rational_t: r1 = criar_racional(3, 4);    
+    rational_t: r2 = criar_racional(2, 5);   
+    rational_t: r3 = criar_racional(6, 8);    
     
     print("Racional 1: ", r1.numerador, "/", r1.denominador, "\n");
     print("Racional 2: ", r2.numerador, "/", r2.denominador, "\n");
@@ -78,7 +78,7 @@ fun void main() {
     // Teste de igualdade
     print("\nTESTE DE IGUALDADE: \n");
     if (eh_igual_racional(r1, r3)) {
-        print("r1 e r3 são iguais (correto: 3/4 = 6/8)\n");
+        print("r1 e r3 são iguais \n");
     } else {
         print("r1 e r3 são diferentes\n");
     }
@@ -86,7 +86,7 @@ fun void main() {
     if (eh_igual_racional(r1, r2)) {
         print("r1 e r2 são iguais\n");
     } else {
-        print("r1 e r2 são diferentes (correto: 3/4 ≠ 2/5)\n");
+        print("r1 e r2 são diferentes\n");
     }
     
     // Teste das operações
@@ -94,26 +94,26 @@ fun void main() {
     
     // Soma
     rational_t: soma = somar_racionais(r1, r2);
-    print("Soma (3/4 + 2/5): ", soma.numerador, "/", soma.denominador, "\n");
+    print("Soma (r1 + r2): ", soma.numerador, "/", soma.denominador, "\n");
     
     // Negação
     rational_t: neg = negar_racional(r1);
-    print("Negação de 3/4: ", neg.numerador, "/", neg.denominador, "\n");
+    print("Negação de r1: ", neg.numerador, "/", neg.denominador, "\n");
     
     // Subtração
     rational_t: sub = subtrair_racionais(r1, r2);
-    print("Subtração (3/4 - 2/5): ", sub.numerador, "/", sub.denominador, "\n");
+    print("Subtração (r1 - r2): ", sub.numerador, "/", sub.denominador, "\n");
     
     // Multiplicação
     rational_t: mult = multiplicar_racionais(r1, r2);
-    print("Multiplicação (3/4 * 2/5): ", mult.numerador, "/", mult.denominador, "\n");
+    print("Multiplicação (r1 * r2): ", mult.numerador, "/", mult.denominador, "\n");
     
     // Inverso
     rational_t: inv = inverso_racional(r1);
-    print("Inverso de 3/4: ", inv.numerador, "/", inv.denominador, "\n");
+    print("Inverso de r1: ", inv.numerador, "/", inv.denominador, "\n");
     
     // Divisão
     rational_t: div = dividir_racionais(r1, r2);
-    print("Divisão (3/4 ÷ 2/5): ", div.numerador, "/", div.denominador, "\n");
+    print("Divisão (r1 ÷ r2): ", div.numerador, "/", div.denominador, "\n");
     
 }
