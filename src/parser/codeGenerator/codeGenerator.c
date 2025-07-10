@@ -182,13 +182,6 @@ void init_code_generation() {
 }
 
 void finalize_code_generation() {
-    // Adiciona limpeza de memória dos arrays 2D como comentário
-    if (generate_code) {
-        emit_line("// Limpeza de memória dos arrays 2D");
-        emit_line("// Note: Em um código real, você deveria liberar a memória aqui");
-        emit_line("// Exemplo para matriz1: emit_2d_array_deallocation(\"matriz1\", \"linhas1\");");
-    }
-    
     // Finaliza qualquer código pendente
     if (code_position > 0) {
         generated_code[code_position] = '\0';
@@ -660,10 +653,4 @@ void emit_struct_definition(const char* struct_name, StructField* fields) {
     decrease_indent();
     emit_line("} %s;", struct_name);
     emit_line("");
-}
-
-void emit_struct_field_access(const char* struct_var, const char* field_name, const char* field_type) {
-    // Esta função gera o código C para acessar um campo de struct
-    // A geração de código real acontece no tratamento de expressões
-    // Este é apenas um auxiliar que poderia ser usado para validação
 }

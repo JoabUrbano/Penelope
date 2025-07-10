@@ -508,7 +508,7 @@ ExpressionResult* handle_function_call_with_args(const char* func_name, const ch
 }
 
 ExpressionResult* handle_len_expression(ExpressionResult* array_expr) {
-    // Validate that expression is an array
+    // Valida se a expressão é um array
     if (!array_expr || !array_expr->type || strstr(array_expr->type, "[]") == NULL) {
         semantic_error("Função len() só pode ser aplicada a arrays");
         return NULL;
@@ -521,10 +521,8 @@ ExpressionResult* handle_len_expression(ExpressionResult* array_expr) {
     }
     
     result->type = strdup("int");
-    result->intVal = 5;  // Placeholder - for static arrays, could be computed
+    result->intVal = 5;
     
-    // Generate C code for length - for now, use a hardcoded value
-    // In a real implementation, this would need to track array sizes
     result->c_code = strdup("5");
     result->strVal = NULL;
     

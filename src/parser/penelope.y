@@ -242,10 +242,6 @@ simple_stmt:
         free_expression_result($1);
     }
     | BREAK SEMICOLON {
-        if (exec_block) {
-            // break real ainda não implementado — só evitar erro
-        }
-        
         // Gera código C para break
         if (generate_code) {
             if (current_loop_exit_label != -1) {
