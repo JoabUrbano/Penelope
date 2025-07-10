@@ -1,6 +1,7 @@
 #include "grammarActions.h"
 #include "../semantics/semantics.h"
 #include "../codeGenerator/codeGenerator.h"
+#include "../symbolTable/symbolTable.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -433,6 +434,9 @@ ExpressionResult* handle_logical_not(ExpressionResult* expr) {
     return evaluate_unary_expression(expr, "!");
 }
 
+// Forward declaration for argument processing
+char* process_function_arguments(const char* func_name, const char* raw_args);
+
 // Function call and array operations
 ExpressionResult* handle_function_call(const char* func_name) {
     // Busca o tipo de retorno da função na tabela de símbolos
@@ -487,15 +491,19 @@ ExpressionResult* handle_function_call_with_args(const char* func_name, const ch
     result->intVal = 0;
     result->strVal = NULL;
     
-    // Generate function call code with arguments
-    char* call_code = malloc(strlen(func_name) + strlen(args) + 10);
+    // Process arguments to handle reference parameters
+    char* processed_args = process_function_arguments(func_name, args);
+    
+    // Generate function call code with processed arguments
+    char* call_code = malloc(strlen(func_name) + strlen(processed_args) + 10);
     if (call_code) {
-        sprintf(call_code, "%s(%s)", func_name, args);
+        sprintf(call_code, "%s(%s)", func_name, processed_args);
         result->c_code = call_code;
     } else {
         result->c_code = NULL;
     }
     
+    free(processed_args);
     return result;
 }
 
@@ -671,9 +679,13 @@ void handle_parameter_declaration(const char* type, const char* param_name) {
 
 // Function parameter handling
 void handle_function_parameter(const char* type, const char* param_name) {
-    // Isso será tratado coletando parâmetros e emitindo-os
-    // in the function signature. For now, just add to parameter list.
-    // TODO: Implementar coleta e emissão de parâmetros
+    // Store parameter information for reference handling
+    if (current_function_name) {
+        store_function_parameter(current_function_name, param_name, type);
+    }
+    
+    // Declare parameter in current scope
+    declare_variable(type, param_name, NULL);
 }
 
 // Break statement
@@ -705,4 +717,96 @@ void handle_return_statement(ExpressionResult* expr) {
     } else {
         emit_line("return;");
     }
+}
+
+// Function to process arguments and handle reference parameters
+char* process_function_arguments(const char* func_name, const char* raw_args) {
+    if (!func_name || !raw_args) return strdup("");
+    
+    // Get function parameter information
+    init_function_params();
+    Node* param_node = find_node(&function_params_map, func_name);
+    if (!param_node) {
+        // No parameter info stored, return args as-is
+        return strdup(raw_args);
+    }
+    
+    FunctionParamInfo* params = (FunctionParamInfo*)param_node->value.value.strVal;
+    if (!params) {
+        return strdup(raw_args);
+    }
+    
+    // Build array of parameter types for easier access
+    char param_types[10][50]; // Support up to 10 parameters, 50 chars each
+    int param_count = 0;
+    
+    FunctionParamInfo* current = params;
+    while (current && param_count < 10) {
+        strncpy(param_types[param_count], current->type, 49);
+        param_types[param_count][49] = '\0';
+        current = current->next;
+        param_count++;
+    }
+    
+    // Reverse the array since parameters are stored in reverse order
+    for (int i = 0; i < param_count / 2; i++) {
+        char temp[50];
+        strcpy(temp, param_types[i]);
+        strcpy(param_types[i], param_types[param_count - 1 - i]);
+        strcpy(param_types[param_count - 1 - i], temp);
+    }
+    
+    // Process arguments
+    char* processed_args = malloc(strlen(raw_args) + param_count * 2 + 10); // Extra space for & symbols
+    processed_args[0] = '\0';
+    
+    char* args_copy = strdup(raw_args);
+    char* token = strtok(args_copy, ",");
+    int arg_index = 0;
+    
+    while (token != NULL && arg_index < param_count) {
+        // Trim whitespace
+        while (*token == ' ') token++;
+        char* end = token + strlen(token) - 1;
+        while (end > token && *end == ' ') end--;
+        *(end + 1) = '\0';
+        
+        if (strlen(processed_args) > 0) {
+            strcat(processed_args, ", ");
+        }
+        
+        // Check if this parameter is a reference parameter (ends with &)
+        if (arg_index < param_count && strstr(param_types[arg_index], "&") != NULL) {
+            // This is a reference parameter, add & if not already a pointer expression
+            // and if the token is not already a parameter from the current function
+            if (strchr(token, '(') == NULL && strchr(token, '[') == NULL && 
+                strchr(token, '*') == NULL && strstr(token, "->") == NULL) {
+                // Check if the token is a parameter of the current function
+                int is_function_param = 0;
+                if (current_function_name && strcmp(func_name, current_function_name) == 0) {
+                    // We're in a recursive call, check if token is a parameter
+                    FunctionParamInfo* check_param = params;
+                    while (check_param) {
+                        if (strcmp(token, check_param->name) == 0) {
+                            is_function_param = 1;
+                            break;
+                        }
+                        check_param = check_param->next;
+                    }
+                }
+                
+                if (!is_function_param) {
+                    strcat(processed_args, "&");
+                }
+            }
+        }
+        
+        strcat(processed_args, token);
+        
+        token = strtok(NULL, ",");
+        arg_index++;
+    }
+    
+    free(args_copy);
+    return processed_args;
 }

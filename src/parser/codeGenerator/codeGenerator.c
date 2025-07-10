@@ -16,6 +16,8 @@ int inline_mode = 0;
 int current_loop_exit_label = -1;
 int in_main_function = 0;
 
+// Global flag for else-if chain tracking is declared in header
+
 // Função para desabilitar temporariamente a geração de código
 void disable_code_generation() {
     generate_code = 0;
@@ -371,7 +373,7 @@ void emit_if_else_code(int else_label, int end_label) {
     if (!generate_code) return;
     
     decrease_indent();
-    emit_line("} else {");
+    emit_code("} else {");
     increase_indent();
 }
 

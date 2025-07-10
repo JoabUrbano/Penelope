@@ -173,3 +173,83 @@ void free_struct_definition(StructDefinition* def) {
         free(def);
     }
 }
+
+// ========== FUNÇÕES DE GERENCIAMENTO DE PARÂMETROS DE FUNÇÃO ==========
+
+// HashMap para armazenar informações de parâmetros por função
+HashMap function_params_map;
+static int function_params_initialized = 0;
+
+void init_function_params() {
+    if (!function_params_initialized) {
+        function_params_map.nodes = NULL;
+        function_params_initialized = 1;
+    }
+}
+
+// Função para armazenar parâmetros de função
+void store_function_parameter(const char* func_name, const char* param_name, const char* param_type) {
+    if (!func_name || !param_name || !param_type) return;
+    
+    // Debug: Print parameter information
+    
+    
+    init_function_params();
+    
+    // Cria nova informação de parâmetro
+    FunctionParamInfo* new_param = malloc(sizeof(FunctionParamInfo));
+    new_param->name = strdup(param_name);
+    new_param->type = strdup(param_type);
+    new_param->next = NULL;
+    
+    // Procura se já existe lista de parâmetros para esta função
+    Node* existing = find_node(&function_params_map, func_name);
+    if (existing) {
+        // Adiciona ao início da lista
+        new_param->next = (FunctionParamInfo*)existing->value.value.strVal;
+    }
+    
+    // Armazena na tabela
+    Data data;
+    data.type = strdup("function_params");
+    data.value.strVal = (char*)new_param;
+    
+    insert_node(&function_params_map, func_name, data);
+}
+
+int is_function_parameter_reference(const char* func_name, int param_index) {
+    init_function_params();
+    
+    Node* result = find_node(&function_params_map, func_name);
+    if (!result) {
+        printf("DEBUG: No parameters found for function %s\n", func_name);
+        return 0;
+    }
+    
+    FunctionParamInfo* params = (FunctionParamInfo*)result->value.value.strVal;
+    printf("DEBUG: Found parameters for function %s, params pointer: %p\n", func_name, (void*)params);
+    
+    // Contar parâmetros (armazenados em ordem inversa)
+    int count = 0;
+    FunctionParamInfo* current = params;
+    while (current) {
+        printf("DEBUG: Parameter %d: %s (type: %s)\n", count, current->name, current->type);
+        count++;
+        current = current->next;
+    }
+    
+    printf("DEBUG: Total parameters: %d, looking for index: %d\n", count, param_index);
+    
+    // Acessar parâmetro no índice correto
+    current = params;
+    for (int i = 0; i < count - param_index - 1; i++) {
+        if (current) current = current->next;
+    }
+    
+    if (current && current->type) {
+        printf("DEBUG: Checking if parameter %d of function %s is reference\n", param_index, func_name ? func_name : "null");
+        return (strstr(current->type, "&") != NULL);
+    }
+    
+    return 0;
+}

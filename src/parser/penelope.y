@@ -291,8 +291,10 @@ if_stmt:
         handle_if_end_part(get_current_end_label());
         exec_block = 1;
     }
-    | if_start block ELSE if_stmt {
+    | if_start block ELSE {
         handle_if_else_part($1);
+        exec_block = !last_condition_result;
+    } if_stmt {
         handle_if_end_part(get_current_end_label());
         exec_block = 1;
     }
@@ -412,6 +414,9 @@ list_param:
 param:
     type COLON ID {
         add_function_parameter($1, $3);
+        
+        // Store parameter information for reference handling
+        store_function_parameter(current_function_name, $3, $1);
 
         // INSERIR AQUI a mesma lógica de inserção na tabela de símbolos
         if (find_variable_in_current_scope($3) != NULL) {
@@ -429,6 +434,9 @@ param:
         char* ref_type = malloc(strlen($1) + 2);
         sprintf(ref_type, "%s&", $1);
         add_function_parameter(ref_type, $4);
+        
+        // Store parameter information for reference handling
+        store_function_parameter(current_function_name, $4, ref_type);
 
         if (find_variable_in_current_scope($4) != NULL) {
             semantic_error("Parâmetro '%s' já declarado na função.", $4);

@@ -16,6 +16,9 @@ Data copy_data(Data src) {
         dest.value.strVal = strdup(src.value.strVal);
     } else if (strcmp(src.type, "bool") == 0) {
         dest.value.intVal = src.value.intVal;
+    } else if (strcmp(src.type, "function_params") == 0) {
+        // Special handling for function parameter pointers - just copy the pointer
+        dest.value.strVal = src.value.strVal;
     } else {
         dest.value.strVal = NULL;
     }
@@ -27,6 +30,7 @@ Data copy_data(Data src) {
 void free_data(Data data) {
     // Verifica tipo string antes de liberar o ponteiro do tipo
     int is_string = (data.type != NULL && strcmp(data.type, "string") == 0);
+    int is_function_params = (data.type != NULL && strcmp(data.type, "function_params") == 0);
     
     if (data.type != NULL) {
         free(data.type);
@@ -35,6 +39,9 @@ void free_data(Data data) {
     if (is_string && data.value.strVal != NULL) {
         free(data.value.strVal);
     }
+    
+    // For function_params, we don't free the pointer here as it's managed separately
+    // The FunctionParamInfo structures are managed by the symbol table
 }
 
 Node* find_node(HashMap* map, char* key) {

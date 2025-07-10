@@ -560,7 +560,7 @@ ExpressionResult* evaluate_variable_access(const char* var_name) {
         result->strVal = strdup(var_data->value.strVal ? var_data->value.strVal : "");
     }
 
-    printf("DEBUG: variável %s tem tipo %s\n", var_name, result->type);
+    // printf("DEBUG: variável %s tem tipo %s\n", var_name, result->type);
 
     return result;
 }

@@ -26,6 +26,13 @@ typedef struct StructDefinition {
 
 extern StructDefinition* struct_definitions;
 
+// Estruturas para gerenciamento de parâmetros de função
+typedef struct FunctionParamInfo {
+    char* name;
+    char* type;
+    struct FunctionParamInfo* next;
+} FunctionParamInfo;
+
 // Funções de gerenciamento de escopo
 void push_scope(const char* scope_name);
 void pop_scope();
@@ -47,5 +54,11 @@ StructField* find_struct_field(const char* struct_name, const char* field_name);
 void add_struct_field(StructField** fields, const char* field_name, const char* field_type);
 void free_struct_fields(StructField* fields);
 void free_struct_definition(StructDefinition* def);
+
+// Funções de gerenciamento de parâmetros de função
+void init_function_params();
+void store_function_parameter(const char* func_name, const char* param_name, const char* param_type);
+int is_function_parameter_reference(const char* func_name, int param_index);
+extern HashMap function_params_map;
 
 #endif // SYMBOL_TABLE_H

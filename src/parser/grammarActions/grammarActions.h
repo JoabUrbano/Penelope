@@ -12,6 +12,7 @@ extern int current_loop_exit_label;
 extern int last_condition_result;
 extern int inline_mode;
 extern char* currentScope;
+extern char* current_function_name;
 
 // Funções de ações da gramática para declarações
 void handle_var_declaration(const char* type, const char* var_name);
