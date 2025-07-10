@@ -451,6 +451,10 @@ ExpressionResult* evaluate_binary_expression(ExpressionResult* left, ExpressionR
             }
         }
     }
+    else if (strcmp(operation, "%") == 0 && strcmp(result_type, "int") == 0) {
+    result->intVal = left->intVal % right->intVal;
+}
+
     // Outras operações seriam implementadas similarmente...
     
     return result;

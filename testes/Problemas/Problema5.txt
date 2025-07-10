@@ -1,4 +1,3 @@
-// Subprograma recursivo que calcula o MDC
 fun void mdc(int: n, int: m, int&: r) {
     if (m % n == 0) {
         r = n;
@@ -10,7 +9,6 @@ fun void mdc(int: n, int: m, int&: r) {
         mdc(m, n % m, r);
     }
 }
-
 fun void main() {
     int: a = 48;
     int: b = 18;
@@ -20,3 +18,5 @@ fun void main() {
 
     print("O MDC de ", a, " e ", b, " é: ", resultado, "\n");
 }
+// Subprograma recursivo que calcula o MDC
+
