@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include "../../structs/expression/expressionResult.h"
 #include "../../structs/lvalue/lvalueResult.h"
+#include "../symbolTable/symbolTable.h"
 
 // Configurações de geração de código
 #define MAX_CODE_SIZE 10000
@@ -21,7 +22,7 @@ extern int current_loop_exit_label;
 // Controle de função atual
 extern int in_main_function;
 
-// Function context tracking for proper array allocation
+// Rastreamento de contexto de função para alocação apropriada de array
 extern char* current_function_return_type;
 
 // Controle de geração de código
@@ -85,5 +86,9 @@ void emit_if_else_code(int else_label, int end_label);
 void emit_if_end_code(int end_label);
 void emit_for_start_code(const char* var_name, ExpressionResult* start_expr, ExpressionResult* end_expr, int increment_label, int condition_label, int end_label);
 void emit_for_end_code(LValueResult* increment_lval, int increment_label, int condition_label, int end_label);
+
+// Funções de geração de código de struct
+void emit_struct_definition(const char* struct_name, StructField* fields);
+void emit_struct_field_access(const char* struct_var, const char* field_name, const char* field_type);
 
 #endif // CODE_GENERATOR_H

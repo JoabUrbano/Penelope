@@ -4,6 +4,7 @@
 # Diretório de build (arquivos gerados)
 build/
 .parser.gv
+.parser.output
 
 # Executável principal
 penelope_parser
