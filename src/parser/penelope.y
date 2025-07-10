@@ -616,10 +616,10 @@ expression:
         free_expression_result($3);
     }
     | expression MODULO expression {
-    $$ = handle_modulo($1, $3);  // ou qualquer função que você use para tratar operadores
-    free_expression_result($1);
-    free_expression_result($3);
-}
+        $$ = handle_modulo($1, $3);
+        free_expression_result($1);
+        free_expression_result($3);
+    }
     | SUBTRACTION expression %prec UMINUS {
         $$ = handle_unary_minus($2);
         if (!$$) YYABORT;

@@ -398,7 +398,7 @@ ExpressionResult* handle_logical_and(ExpressionResult* left, ExpressionResult* r
 ExpressionResult* handle_logical_or(ExpressionResult* left, ExpressionResult* right) {
     return evaluate_binary_expression(left, right, "||");
 }
-//module %
+
 ExpressionResult* handle_modulo(ExpressionResult* left, ExpressionResult* right) {
     return evaluate_binary_expression(left, right, "%");
 }
