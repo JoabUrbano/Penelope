@@ -8,12 +8,11 @@
 #include "../src/utils/uniqueIdentifier/uniqueIdentifier.h"
 #include "../src/structs/lvalue/lvalueResult.h"
 
-// Forward declarations for Bison
 extern int yylineno;
 extern int yylex();
 extern void yyerror(const char* s);
 
-// Parameter collection for function signatures
+// Coleta de parâmetros para assinaturas de função
 typedef struct FunctionParam {
     char* type;
     char* name;
@@ -24,7 +23,7 @@ FunctionParam* current_function_params = NULL;
 char* current_function_name = NULL;
 char* current_function_return_type = NULL;
 
-// Argument collection for function calls
+// Coleta de argumentos para chamadas de função
 typedef struct FunctionArg {
     char* code;
     struct FunctionArg* next;
@@ -32,11 +31,11 @@ typedef struct FunctionArg {
 
 FunctionArg* current_function_args = NULL;
 
-// Struct definition parsing
+// Análise de definição de structs
 char* current_struct_name = NULL;
 StructField* current_struct_fields = NULL;
 
-// Forward declarations for helper functions
+// Declarações antecipadas para funções auxiliares
 void add_function_parameter(const char* type, const char* name);
 void clear_function_parameters();
 void clear_function_context();
@@ -124,15 +123,15 @@ decl_or_fun:
 
 fun:
     FUN type ID LPAREN {
-        // Store function information for parameter collection
+        // Armazena informações da função para coleta de parâmetros
         current_function_name = strdup($3);
         current_function_return_type = strdup($2);
-        clear_function_parameters(); // Clear any previous parameters
+        clear_function_parameters(); // Limpa parâmetros anteriores
         
         // Armazena informações da função na tabela de símbolos
         store_function($3, $2);
         
-        // Always enable code generation for all functions
+        // Sempre habilita geração de código para todas as funções
         enable_code_generation();
         
         // Verifica se é a função main
@@ -146,8 +145,8 @@ fun:
         char *scopeId = uniqueIdentifier();
         push_scope(scopeId);
     } list_param_opt RPAREN LBRACE {
-        // Now emit the function signature with all collected parameters
-        // Pass the function information directly instead of using global variables
+        // Agora emite a assinatura da função com todos os parâmetros coletados
+        // Passa as informações da função diretamente em vez de usar variáveis globais
         emit_function_signature_with_info($2, $3);
     } list_stmt RBRACE {
         // Remove o escopo da função
@@ -162,7 +161,7 @@ fun:
             emit_line("}");
         }
         
-        // Clear function parameters and context
+        // Limpa parâmetros e contexto da função
         clear_function_parameters();
         clear_function_context();
         in_main_function = 0;
@@ -171,20 +170,20 @@ fun:
 
 struct_def:
     STRUCT ID LBRACE {
-        // Start collecting struct fields
+        // Inicia coleta de campos do struct
         current_struct_name = strdup($2);
         current_struct_fields = NULL;
     } struct_field_list RBRACE {
-        // Define the struct in the symbol table
+        // Define o struct na tabela de símbolos
         define_struct(current_struct_name, current_struct_fields);
         
-        // Generate C struct definition
+        // Gera definição do struct em C
         emit_struct_definition(current_struct_name, current_struct_fields);
         
-        // Clean up
+        // Limpa recursos
         free(current_struct_name);
         current_struct_name = NULL;
-        current_struct_fields = NULL; // Don't free here, it's owned by the symbol table now
+        current_struct_fields = NULL; // Não libera aqui, agora pertence à tabela de símbolos
     }
     ;
 
@@ -197,7 +196,7 @@ struct_field_list:
 
 struct_field:
     type ID SEMICOLON {
-        // Add field to current struct
+        // Adiciona campo ao struct atual
         add_struct_field(&current_struct_fields, $2, $1);
     }
     ;
@@ -337,7 +336,7 @@ for_stmt:
         if (generate_code) {
             emit_inline(") {");
             set_inline_mode(0);
-            emit_line("");  // Add the newline
+            emit_line("");  // Adiciona a quebra de linha
             increase_indent();
         }
     } LBRACE list_stmt RBRACE {
@@ -373,10 +372,10 @@ decl:
 type:
     TYPE                                { $$ = $1;}
     | ID                                { 
-                                            // This could be a struct type
+                                            // Isso pode ser um tipo struct
                                             StructDefinition* struct_def = find_struct_definition($1);
                                             if (struct_def) {
-                                                $$ = strdup($1); // It's a valid struct type
+                                                $$ = strdup($1); //
                                             } else {
                                                 semantic_error("Tipo não definido: '%s'", $1);
                                                 YYABORT;
@@ -512,7 +511,7 @@ lvalue:
         // Para acesso a array, verifica se o lvalue é um array e retorna o tipo do elemento
         
         if ($1->type == LVALUE_ARRAY_ACCESS) {
-            // Multidimensional array access: arr[i][j]
+            // Acesso a array multidimensional: arr[i][j]
             // Aumenta o número de dimensões
             char** newIndices = malloc(($1->dimensionCount + 1) * sizeof(char*));
             
@@ -549,7 +548,7 @@ lvalue:
             free_expression_result($3);
             
         } else if ($1->type == LVALUE_VAR) {
-            // Single-dimensional array access: arr[i]
+            // Acesso a array unidimensional: arr[i]
             Data* arrayNode = find_variable_in_scopes($1->varName);
             if (!arrayNode) {
                 semantic_error("Variável '%s' não declarada.", $1->varName);
@@ -985,8 +984,3 @@ char* get_function_arguments() {
     
     return result;
 }
-
-/* Regras para definição de structs */
-
-
-
