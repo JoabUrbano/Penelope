@@ -1,4 +1,5 @@
 #include "codeGenerator.h"
+#include "../symbolTable/symbolTable.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -272,10 +273,28 @@ void emit_assignment_code(LValueResult* lval, ExpressionResult* expr) {
             emit_line("%s = %s;", array_access, expr->c_code ? expr->c_code : "0");
         }
     } else if (lval->type == LVALUE_VAR) {
+        // Check if it's a reference parameter (type ends with &)
+        Data* var_data = find_variable_in_scopes(lval->varName);
+        int is_reference = 0;
+        if (var_data && var_data->type) {
+            int type_len = strlen(var_data->type);
+            if (type_len > 0 && var_data->type[type_len - 1] == '&') {
+                is_reference = 1;
+            }
+        }
+        
         if (inline_mode) {
-            emit_inline("%s = %s", lval->varName, expr->c_code ? expr->c_code : "0");
+            if (is_reference) {
+                emit_inline("*%s = %s", lval->varName, expr->c_code ? expr->c_code : "0");
+            } else {
+                emit_inline("%s = %s", lval->varName, expr->c_code ? expr->c_code : "0");
+            }
         } else {
-            emit_line("%s = %s;", lval->varName, expr->c_code ? expr->c_code : "0");
+            if (is_reference) {
+                emit_line("*%s = %s;", lval->varName, expr->c_code ? expr->c_code : "0");
+            } else {
+                emit_line("%s = %s;", lval->varName, expr->c_code ? expr->c_code : "0");
+            }
         }
     }
 }
