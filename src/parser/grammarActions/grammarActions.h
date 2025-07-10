@@ -62,6 +62,7 @@ ExpressionResult* handle_subtraction(ExpressionResult* left, ExpressionResult* r
 ExpressionResult* handle_multiplication(ExpressionResult* left, ExpressionResult* right);
 ExpressionResult* handle_division(ExpressionResult* left, ExpressionResult* right);
 ExpressionResult* handle_exponentiation(ExpressionResult* left, ExpressionResult* right);
+ExpressionResult* handle_modulo(ExpressionResult* left, ExpressionResult* right);
 
 // Funções de ações da gramática para operações de comparação
 ExpressionResult* handle_less_than(ExpressionResult* left, ExpressionResult* right);

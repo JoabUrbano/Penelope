@@ -106,24 +106,32 @@ int validate_array_access(const char* var_name, ExpressionResult* index) {
 }
 
 int validate_binary_operation(ExpressionResult* left, ExpressionResult* right, const char* operation) {
-    // Operações aritméticas
+    printf("Operação %s entre %s e %s\n", operation, left->type, right->type);
     if (strcmp(operation, "+") == 0 || strcmp(operation, "-") == 0 || 
-        strcmp(operation, "*") == 0 || strcmp(operation, "/") == 0 ||
-        strcmp(operation, "^") == 0) {
-        
-        if ((strcmp(left->type, "int") == 0 || strcmp(left->type, "float") == 0) &&
-            (strcmp(right->type, "int") == 0 || strcmp(right->type, "float") == 0)) {
-            return 1;
+    strcmp(operation, "*") == 0 || strcmp(operation, "/") == 0 ||
+    strcmp(operation, "^") == 0 || strcmp(operation, "%") == 0) {
+    
+      if ((strcmp(left->type, "int") == 0 || strcmp(left->type, "float") == 0) &&
+        (strcmp(right->type, "int") == 0 || strcmp(right->type, "float") == 0)) {
+
+        // Regra especial: módulo só faz sentido para inteiros
+        if (strcmp(operation, "%") == 0 &&
+            (strcmp(left->type, "int") != 0 || strcmp(right->type, "int") != 0)) {
+            semantic_error("Operação %% requer operandos do tipo int");
+            return 0;
         }
-        
-        // Concatenação de strings
-        if (strcmp(operation, "+") == 0 && strcmp(left->type, "string") == 0 && strcmp(right->type, "string") == 0) {
-            return 1;
-        }
-        
-        semantic_error("Operação %s não suportada entre tipos %s e %s", operation, left->type, right->type);
-        return 0;
+
+        return 1;
     }
+
+    // Concatenação de strings
+    if (strcmp(operation, "+") == 0 && strcmp(left->type, "string") == 0 && strcmp(right->type, "string") == 0) {
+        return 1;
+    }
+
+    semantic_error("Operação %s não suportada entre tipos %s e %s", operation, left->type, right->type);
+    return 0;
+}
     
     // Operações relacionais
     if (strcmp(operation, "<") == 0 || strcmp(operation, ">") == 0 || 
@@ -179,19 +187,25 @@ int validate_unary_operation(ExpressionResult* expr, const char* operation) {
     return 0;
 }
 
-// Funções de análise semântica para verificação de tipos
 int check_type_compatibility(const char* expected_type, const char* actual_type) {
-    if (strcmp(expected_type, actual_type) == 0) {
+    // Remove '&' se for tipo por referência
+    char expected_clean[32], actual_clean[32];
+    strcpy(expected_clean, expected_type);
+    strcpy(actual_clean, actual_type);
+    if (expected_clean[strlen(expected_clean)-1] == '&') expected_clean[strlen(expected_clean)-1] = '\0';
+    if (actual_clean[strlen(actual_clean)-1] == '&') actual_clean[strlen(actual_clean)-1] = '\0';
+
+    if (strcmp(expected_clean, actual_clean) == 0) return 1;
+
+    // Compatibilidade int <-> float
+    if ((strcmp(expected_clean, "float") == 0 && strcmp(actual_clean, "int") == 0) ||
+        (strcmp(expected_clean, "int") == 0 && strcmp(actual_clean, "float") == 0)) {
         return 1;
     }
-    
-    // Compatibilidade entre int e float
-    if ((strcmp(expected_type, "float") == 0 && strcmp(actual_type, "int") == 0) || (strcmp(expected_type, "int") == 0 && strcmp(actual_type, "float") == 0)) {
-        return 1;
-    }
-    
+
     return 0;
 }
+
 
 char* get_expression_result_type(ExpressionResult* expr) {
     if (expr && expr->type) {
@@ -202,20 +216,20 @@ char* get_expression_result_type(ExpressionResult* expr) {
 
 char* get_binary_operation_result_type(const char* left_type, const char* right_type, const char* operation) {
     // Operações aritméticas
-    if (strcmp(operation, "+") == 0 || strcmp(operation, "-") == 0 || 
-        strcmp(operation, "*") == 0 || strcmp(operation, "/") == 0 ||
-        strcmp(operation, "^") == 0) {
-        
-        if (strcmp(left_type, "float") == 0 || strcmp(right_type, "float") == 0) {
-            return strdup("float");
-        }
-        if (strcmp(left_type, "int") == 0 && strcmp(right_type, "int") == 0) {
-            return strdup("int");
-        }
-        if (strcmp(operation, "+") == 0 && strcmp(left_type, "string") == 0 && strcmp(right_type, "string") == 0) {
-            return strdup("string");
-        }
+if (strcmp(operation, "+") == 0 || strcmp(operation, "-") == 0 || 
+    strcmp(operation, "*") == 0 || strcmp(operation, "/") == 0 ||
+    strcmp(operation, "^") == 0 || strcmp(operation, "%") == 0) {
+    
+    if (strcmp(left_type, "float") == 0 || strcmp(right_type, "float") == 0) {
+        return strdup("float");
     }
+    if (strcmp(left_type, "int") == 0 && strcmp(right_type, "int") == 0) {
+        return strdup("int");
+    }
+    if (strcmp(operation, "+") == 0 && strcmp(left_type, "string") == 0 && strcmp(right_type, "string") == 0) {
+        return strdup("string");
+    }
+}
     
     // Operações relacionais
     if (strcmp(operation, "<") == 0 || strcmp(operation, ">") == 0 || 
@@ -313,29 +327,53 @@ int assign_to_variable(const char* var_name, ExpressionResult* value) {
         semantic_error("Variável '%s' não declarada", var_name);
         return 0;
     }
-    
-    if (!check_type_compatibility(var_data->type, value->type)) {
+
+    // Remove o '&' do tipo, se existir, para comparar corretamente com o tipo de value
+    char* clean_type = strdup(var_data->type);
+    if (clean_type[strlen(clean_type) - 1] == '&') {
+        clean_type[strlen(clean_type) - 1] = '\0';  // Remove o '&'
+    }
+
+    if (!check_type_compatibility(clean_type, value->type)) {
         semantic_error("Tipo incompatível na atribuição à variável '%s'", var_name);
+        free(clean_type);
         return 0;
     }
-    
+
     // Atualiza valor na tabela de símbolos
-    if (strcmp(var_data->type, "int") == 0) {
+    if (strcmp(clean_type, "int") == 0) {
         var_data->value.intVal = value->intVal;
-    } else if (strcmp(var_data->type, "float") == 0) {
+    } else if (strcmp(clean_type, "float") == 0) {
         var_data->value.doubleVal = value->doubleVal;
-    } else if (strcmp(var_data->type, "bool") == 0) {
+    } else if (strcmp(clean_type, "bool") == 0) {
         var_data->value.intVal = value->intVal;
-    } else if (strcmp(var_data->type, "string") == 0) {
-        // Libera o valor antigo da string para evitar vazamento de memória
+    } else if (strcmp(clean_type, "string") == 0) {
         if (var_data->value.strVal) {
             free(var_data->value.strVal);
         }
         var_data->value.strVal = strdup(value->strVal);
     }
-    
+    free(clean_type);
+
+    // Geração de código C
+    if (generate_code) {
+        char* c_expr = expression_to_c_code(value);
+        char assignment_line[256];
+
+        // Se tipo tem '&', gera *var = expr
+        if (strchr(var_data->type, '&') != NULL) {
+            snprintf(assignment_line, sizeof(assignment_line), "*%s = %s;", var_name, c_expr);
+        } else {
+            snprintf(assignment_line, sizeof(assignment_line), "%s = %s;", var_name, c_expr);
+        }
+
+        emit_line(assignment_line);
+    }
+
     return 1;
 }
+
+//oi
 
 int increment_variable(const char* var_name) {
     Data* var_data = find_variable(var_name);
@@ -442,9 +480,10 @@ ExpressionResult* evaluate_binary_expression(ExpressionResult* left, ExpressionR
                 strcat(result->strVal, right->strVal);
             }
         }
+    } else if (strcmp(operation, "%") == 0 && strcmp(result_type, "int") == 0) {
+        result->intVal = left->intVal % right->intVal;
     }
-    // Outras operações seriam implementadas similarmente...
-    
+
     return result;
 }
 
@@ -452,27 +491,33 @@ ExpressionResult* evaluate_unary_expression(ExpressionResult* expr, const char* 
     if (!validate_unary_operation(expr, operation)) {
         return NULL;
     }
-    
+
     ExpressionResult* result = malloc(sizeof(ExpressionResult));
     if (!result) {
         semantic_error("Erro de alocação de memória para resultado de expressão");
         return NULL;
     }
-    
+
     result->type = strdup(expr->type);
-    result->c_code = NULL;
     result->strVal = NULL;
-    
+
+    // Gerar código C para a operação unária
+    char* expr_code = expr->c_code ? expr->c_code : expression_to_c_code(expr);
+    int code_len = strlen(expr_code) + 5;
+    result->c_code = malloc(code_len);
+
     if (strcmp(operation, "-") == 0) {
         if (strcmp(expr->type, "int") == 0) {
             result->intVal = -expr->intVal;
         } else if (strcmp(expr->type, "float") == 0) {
             result->doubleVal = -expr->doubleVal;
         }
+        snprintf(result->c_code, code_len, "(-%s)", expr_code);
     } else if (strcmp(operation, "!") == 0) {
         result->intVal = !expr->intVal;
+        snprintf(result->c_code, code_len, "(!%s)", expr_code);
     }
-    
+
     return result;
 }
 
@@ -482,27 +527,36 @@ ExpressionResult* evaluate_variable_access(const char* var_name) {
         semantic_error("Variável '%s' não declarada", var_name);
         return NULL;
     }
-    
+
     ExpressionResult* result = malloc(sizeof(ExpressionResult));
     if (!result) {
         semantic_error("Erro de alocação de memória para resultado de expressão");
         return NULL;
     }
-    
-    result->type = strdup(var_data->type);
+
+    // Ajuste do tipo para remover '&' se for referência
+    char* raw_type = strdup(var_data->type);
+    if (raw_type[strlen(raw_type) - 1] == '&') {
+        raw_type[strlen(raw_type) - 1] = '\0'; // remove o &
+    }
+    result->type = strdup(raw_type);
+    free(raw_type);
+
     result->c_code = strdup(var_name);  // C code é simplesmente o nome da variável
     result->strVal = NULL;
-    
-    if (strcmp(var_data->type, "int") == 0) {
+
+    if (strcmp(result->type, "int") == 0) {
         result->intVal = var_data->value.intVal;
-    } else if (strcmp(var_data->type, "float") == 0) {
+    } else if (strcmp(result->type, "float") == 0) {
         result->doubleVal = var_data->value.doubleVal;
-    } else if (strcmp(var_data->type, "bool") == 0) {
+    } else if (strcmp(result->type, "bool") == 0) {
         result->intVal = var_data->value.intVal;
-    } else if (strcmp(var_data->type, "string") == 0) {
+    } else if (strcmp(result->type, "string") == 0) {
         result->strVal = strdup(var_data->value.strVal ? var_data->value.strVal : "");
     }
-    
+
+    printf("DEBUG: variável %s tem tipo %s\n", var_name, result->type);
+
     return result;
 }
 

@@ -1,0 +1,22 @@
+fun void mdc(int: n, int: m, int&: r) {
+    if (m % n == 0) {
+        r = n;
+    } else if ((n % m) == 0) {
+        r = m;
+    } else if (m > n) {
+        mdc(n, m % n, r);
+    } else {
+        mdc(m, n % m, r);
+    }
+}
+fun void main() {
+    int: a = 48;
+    int: b = 18;
+    int: resultado;
+
+    mdc(a, b, resultado);
+
+    print("O MDC de ", a, " e ", b, " é: ", resultado, "\n");
+}
+// Subprograma recursivo que calcula o MDC
+

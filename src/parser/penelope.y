@@ -70,6 +70,8 @@ char* get_function_arguments();
 %token BREAK
 %token AND 
 %token OR
+%token MODULO
+
 
 %token <num> INT FLOAT
 
@@ -86,17 +88,18 @@ char* get_function_arguments();
 %type <exprResult> expression
 %type <labelNum> while_start if_start
 
-%right ASSIGNMENT
 %left OR
 %left AND
 %left EQUALS
 %left SMALLEREQUALS BIGGEREQUALS SMALLER BIGGER
 %left ADDITION SUBTRACTION
-%left MULTIPLICATION DIVISION
+%left MULTIPLICATION DIVISION MODULO
 %right EXPONENTIATION   
 %nonassoc UMINUS 
+%right ASSIGNMENT
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
+
 
 
 %start program
@@ -403,24 +406,40 @@ list_param:
 
 param:
     type COLON ID {
-        // Adiciona o parâmetro à tabela de símbolos no escopo atual da função
+        add_function_parameter($1, $3);
+
+        // INSERIR AQUI a mesma lógica de inserção na tabela de símbolos
         if (find_variable_in_current_scope($3) != NULL) {
             semantic_error("Parâmetro '%s' já declarado na função.", $3);
         } else {
             char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
             sprintf(fullKey, "%s#%s", currentScope, $3);
-            
             Data data;
             data.type = strdup($1);
-            
             insert_node(&symbolTable, fullKey, data);
             free(fullKey);
-            
-            // Add parameter to collection for function signature generation
-            add_function_parameter($1, $3);
         }
     }
-    ;
+    | type '&' COLON ID {
+        char* ref_type = malloc(strlen($1) + 2);
+        sprintf(ref_type, "%s&", $1);
+        add_function_parameter(ref_type, $4);
+
+        if (find_variable_in_current_scope($4) != NULL) {
+            semantic_error("Parâmetro '%s' já declarado na função.", $4);
+        } else {
+            char *fullKey = malloc(strlen(currentScope) + strlen($4) + 2);
+            sprintf(fullKey, "%s#%s", currentScope, $4);
+            Data data;
+            data.type = strdup(ref_type);
+            insert_node(&symbolTable, fullKey, data);
+            free(fullKey);
+        }
+
+        free(ref_type);
+    }
+;
+
 
 return_stmt:
     RETURN expression { 
@@ -674,6 +693,11 @@ expression:
     | expression OR expression {
         $$ = handle_logical_or($1, $3);
         if (!$$) YYABORT;
+        free_expression_result($1);
+        free_expression_result($3);
+    }
+    | expression MODULO expression {
+        $$ = handle_modulo($1, $3);
         free_expression_result($1);
         free_expression_result($3);
     }
