@@ -188,18 +188,26 @@ int validate_unary_operation(ExpressionResult* expr, const char* operation) {
 
 // Funções de análise semântica para verificação de tipos
 int check_type_compatibility(const char* expected_type, const char* actual_type) {
+    // Compatíveis se forem exatamente iguais
     if (strcmp(expected_type, actual_type) == 0) {
         return 1;
     }
-    
-    // Compatibilidade entre int e float
-if ((strcmp(expected_type, "float") == 0 && strcmp(actual_type, "int") == 0) || (strcmp(expected_type, "int") == 0 && strcmp(actual_type, "float") == 0)) {
+
+    // Compatibilidade entre int e float (inclusive com &)
+    if ((strstr(expected_type, "float") && strstr(actual_type, "int")) ||
+        (strstr(expected_type, "int") && strstr(actual_type, "float"))) {
         return 1;
     }
 
-    
+    // Compatibilidade entre tipos com e sem referência
+    if ((strstr(expected_type, "int") && strstr(actual_type, "int")) ||
+        (strstr(expected_type, "float") && strstr(actual_type, "float"))) {
+        return 1;
+    }
+
     return 0;
 }
+
 
 char* get_expression_result_type(ExpressionResult* expr) {
     if (expr && expr->type) {
