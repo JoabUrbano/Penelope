@@ -328,31 +328,39 @@ int assign_to_variable(const char* var_name, ExpressionResult* value) {
         return 0;
     }
 
-    if (!check_type_compatibility(var_data->type, value->type)) {
+    // Remove o '&' do tipo, se existir, para comparar corretamente com o tipo de value
+    char* clean_type = strdup(var_data->type);
+    if (clean_type[strlen(clean_type) - 1] == '&') {
+        clean_type[strlen(clean_type) - 1] = '\0';  // Remove o '&'
+    }
+
+    if (!check_type_compatibility(clean_type, value->type)) {
         semantic_error("Tipo incompatível na atribuição à variável '%s'", var_name);
+        free(clean_type);
         return 0;
     }
 
     // Atualiza valor na tabela de símbolos
-    if (strcmp(var_data->type, "int") == 0 || strcmp(var_data->type, "int&") == 0) {
+    if (strcmp(clean_type, "int") == 0) {
         var_data->value.intVal = value->intVal;
-    } else if (strcmp(var_data->type, "float") == 0 || strcmp(var_data->type, "float&") == 0) {
+    } else if (strcmp(clean_type, "float") == 0) {
         var_data->value.doubleVal = value->doubleVal;
-    } else if (strcmp(var_data->type, "bool") == 0 || strcmp(var_data->type, "bool&") == 0) {
+    } else if (strcmp(clean_type, "bool") == 0) {
         var_data->value.intVal = value->intVal;
-    } else if (strcmp(var_data->type, "string") == 0 || strcmp(var_data->type, "string&") == 0) {
+    } else if (strcmp(clean_type, "string") == 0) {
         if (var_data->value.strVal) {
             free(var_data->value.strVal);
         }
         var_data->value.strVal = strdup(value->strVal);
     }
+    free(clean_type);
 
     // Geração de código C
     if (generate_code) {
         char* c_expr = expression_to_c_code(value);
         char assignment_line[256];
 
-        // Se termina com '&', é ponteiro → usa *nome
+        // Se tipo tem '&', gera *var = expr
         if (strchr(var_data->type, '&') != NULL) {
             snprintf(assignment_line, sizeof(assignment_line), "*%s = %s;", var_name, c_expr);
         } else {
@@ -364,6 +372,7 @@ int assign_to_variable(const char* var_name, ExpressionResult* value) {
 
     return 1;
 }
+
 //oi
 
 int increment_variable(const char* var_name) {

@@ -26,6 +26,24 @@ char* expression_to_c_code(ExpressionResult* expr) {
     
     return buffer;
 }
+// Gera código C para argumento de função (considera referência)
+char* expression_to_c_argument_code(ExpressionResult* expr) {
+    static char buffer[256];
+
+    if (!expr || !expr->c_code) {
+        strcpy(buffer, "0");
+        return buffer;
+    }
+
+    // Se tipo termina com &, é referência → precisa de &
+    if (strchr(expr->type, '&')) {
+        snprintf(buffer, sizeof(buffer), "&%s", expr->c_code);
+    } else {
+        snprintf(buffer, sizeof(buffer), "%s", expr->c_code);
+    }
+
+    return buffer;
+}
 
 // Função para avaliar números a partir de strings
 double evaluate_number(char *str) {
