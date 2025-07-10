@@ -358,16 +358,24 @@ list_param:
 param:
     type COLON ID {
         add_function_parameter($1, $3);
-        // mesma lógica de inserção na tabela de símbolos
+
+        // INSERIR AQUI a mesma lógica de inserção na tabela de símbolos
+        if (find_variable_in_current_scope($3) != NULL) {
+            semantic_error("Parâmetro '%s' já declarado na função.", $3);
+        } else {
+            char *fullKey = malloc(strlen(currentScope) + strlen($3) + 2);
+            sprintf(fullKey, "%s#%s", currentScope, $3);
+            Data data;
+            data.type = strdup($1);
+            insert_node(&symbolTable, fullKey, data);
+            free(fullKey);
+        }
     }
     | type '&' COLON ID {
-        // Tipo com referência: int&: r
         char* ref_type = malloc(strlen($1) + 2);
-        sprintf(ref_type, "%s&", $1);  // int& ou float& etc.
+        sprintf(ref_type, "%s&", $1);
         add_function_parameter(ref_type, $4);
-        free(ref_type);
 
-        // mesma lógica de inserção na tabela de símbolos
         if (find_variable_in_current_scope($4) != NULL) {
             semantic_error("Parâmetro '%s' já declarado na função.", $4);
         } else {
@@ -378,8 +386,11 @@ param:
             insert_node(&symbolTable, fullKey, data);
             free(fullKey);
         }
+
+        free(ref_type);
     }
-    ;
+;
+
 
 return_stmt:
     RETURN expression { 
