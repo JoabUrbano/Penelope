@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
     char *input_file = NULL;
     char *output_file = NULL;
     
-    // Parse command line arguments
+    // Analisa argumentos de linha de comando
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--generate-c") == 0 || strcmp(argv[i], "-S") == 0) {
             output_c_code = 1;

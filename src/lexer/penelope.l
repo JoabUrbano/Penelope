@@ -10,6 +10,7 @@
 %%
 
 "fun"                { return FUN; }
+"struct"             { return STRUCT; }
 (int|float|void|string|bool) { yylval.str = strdup(yytext); return TYPE; }
 "true" { yylval.num = 1.0; return BOOL; }
 "false" { yylval.num = 0.0; return BOOL; }
@@ -29,6 +30,7 @@
 ","                  { return COMMA; }
 "("                  { return LPAREN; }
 ")"                  { return RPAREN; }
+"."                  { return DOT; }
 ":"                  { return COLON; }
 ";"                  { return SEMICOLON; }
 

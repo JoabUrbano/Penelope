@@ -32,6 +32,10 @@ typedef struct FunctionArg {
 
 FunctionArg* current_function_args = NULL;
 
+// Struct definition parsing
+char* current_struct_name = NULL;
+StructField* current_struct_fields = NULL;
+
 // Forward declarations for helper functions
 void add_function_parameter(const char* type, const char* name);
 void clear_function_parameters();
@@ -71,8 +75,8 @@ char* get_function_arguments();
 
 %token <num> INT FLOAT
 
-%token FUN WHILE FOR IF ELSE LEN PRINT READ RETURN
-%token LBRACKET RBRACKET COMMA LPAREN RPAREN COLON SEMICOLON NEWLINE
+%token FUN STRUCT WHILE FOR IF ELSE LEN PRINT READ RETURN
+%token LBRACKET RBRACKET COMMA LPAREN RPAREN COLON SEMICOLON NEWLINE DOT
 %token ASSIGNMENT EQUALS SMALLEREQUALS BIGGEREQUALS SMALLER BIGGER
 %token INCREMENT DECREMENT EXPONENTIATION MULTIPLICATION DIVISION ADDITION SUBTRACTION
 %token LBRACE RBRACE
@@ -113,6 +117,7 @@ list_decl_fun:
 
 decl_or_fun:
     fun
+    | struct_def
     | decl SEMICOLON
     | NEWLINE
     ;
@@ -161,6 +166,39 @@ fun:
         clear_function_parameters();
         clear_function_context();
         in_main_function = 0;
+    }
+    ;
+
+struct_def:
+    STRUCT ID LBRACE {
+        // Start collecting struct fields
+        current_struct_name = strdup($2);
+        current_struct_fields = NULL;
+    } struct_field_list RBRACE {
+        // Define the struct in the symbol table
+        define_struct(current_struct_name, current_struct_fields);
+        
+        // Generate C struct definition
+        emit_struct_definition(current_struct_name, current_struct_fields);
+        
+        // Clean up
+        free(current_struct_name);
+        current_struct_name = NULL;
+        current_struct_fields = NULL; // Don't free here, it's owned by the symbol table now
+    }
+    ;
+
+struct_field_list:
+    struct_field
+    | struct_field_list struct_field
+    | struct_field_list NEWLINE
+    | NEWLINE
+    ;
+
+struct_field:
+    type ID SEMICOLON {
+        // Add field to current struct
+        add_struct_field(&current_struct_fields, $2, $1);
     }
     ;
 
@@ -327,6 +365,16 @@ decl:
 
 type:
     TYPE                                { $$ = $1;}
+    | ID                                { 
+                                            // This could be a struct type
+                                            StructDefinition* struct_def = find_struct_definition($1);
+                                            if (struct_def) {
+                                                $$ = strdup($1); // It's a valid struct type
+                                            } else {
+                                                semantic_error("Tipo não definido: '%s'", $1);
+                                                YYABORT;
+                                            }
+                                        }
     | TYPE LBRACKET RBRACKET            { 
                                             char *array_type = malloc(strlen($1) + 3);
                                             sprintf(array_type, "%s[]", $1);
@@ -523,6 +571,39 @@ lvalue:
             free_lvalue_result($1);
             free_expression_result($3);
         }
+    }
+    | lvalue DOT ID {
+        // Struct field access: struct_var.field_name
+        if ($1->type != LVALUE_VAR) {
+            semantic_error("Acesso a campo só é permitido em variáveis simples, não em arrays ou outros tipos.");
+            YYABORT;
+        }
+        
+        // Find the variable to get its type
+        Data* structNode = find_variable_in_scopes($1->varName);
+        if (!structNode) {
+            semantic_error("Variável '%s' não declarada.", $1->varName);
+            YYABORT;
+        }
+        
+        // Check if the variable is a struct type
+        StructDefinition* struct_def = find_struct_definition(structNode->type);
+        if (!struct_def) {
+            semantic_error("Variável '%s' não é um struct.", $1->varName);
+            YYABORT;
+        }
+        
+        // Find the field in the struct
+        StructField* field = find_struct_field(structNode->type, $3);
+        if (!field) {
+            semantic_error("Campo '%s' não existe no struct '%s'.", $3, structNode->type);
+            YYABORT;
+        }
+        
+        // Create struct field lvalue
+        $$ = create_lvalue_struct_field($1->varName, $3, structNode->type, field->type);
+        
+        free_lvalue_result($1);
     }
     ;
 
@@ -891,3 +972,8 @@ char* get_function_arguments() {
     
     return result;
 }
+
+/* Regras para definição de structs */
+
+
+

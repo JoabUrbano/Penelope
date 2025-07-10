@@ -10,14 +10,14 @@
 #include "../utils/hashMap/hashMap.h"
 #include "../utils/uniqueIdentifier/uniqueIdentifier.h"
 
-// External declarations from the generated parser
+// Declarações externas do parser gerado
 extern int yylineno;
 extern int yylex();
 extern int yyparse();
 extern FILE* yyin;
 extern void yyerror(const char* s);
 
-// Common global variables accessible across modules
+// Variáveis globais comuns acessíveis em todos os módulos
 extern int semantic_errors;
 extern int syntax_errors;
 extern char generated_code[];

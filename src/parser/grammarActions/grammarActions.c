@@ -7,20 +7,6 @@
 
 #define _GNU_SOURCE  // para strdup
 
-/**
- * Módulo de Ações da Gramática
- * 
- * Este módulo serve como uma camada fina de orquestração entre o parser e 
- * os módulos de análise semântica e geração de código. Ele manipula ações do parser
- * delegando análise semântica para semantics.c e geração de código para codeGenerator.c.
- * 
- * Responsabilidades:
- * - Orquestrar chamadas para funções de análise semântica
- * - Orquestrar chamadas para funções de geração de código
- * - Gerenciar estado do parser
- * - Ponte entre regras da gramática do parser e lógica semântica/de geração de código
- */
-
 // Ações de Declaração de Variáveis
 void handle_var_declaration(const char* type, const char* var_name) {
     // Análise semântica: validar e declarar variável
@@ -219,6 +205,14 @@ void handle_assignment(LValueResult* lval, ExpressionResult* expr) {
             return;
         }
         target_type = lval->elementType;
+    } else if (lval->type == LVALUE_STRUCT_FIELD) {
+        // Atribuição a campo de struct
+        if (!check_type_compatibility(lval->elementType, expr->type)) {
+            semantic_error("Tipo incompatível: não é possível atribuir %s a campo de tipo %s", 
+                          expr->type, lval->elementType);
+            return;
+        }
+        target_type = lval->elementType;
     } else {
         semantic_error("Tipo de lvalue não suportado para atribuição");
         return;
@@ -331,6 +325,34 @@ ExpressionResult* create_lvalue_expression(LValueResult* lval) {
         }
         
         result->c_code = strdup(array_access);
+        
+        // Definir valores padrão baseados no tipo
+        if (strcmp(lval->elementType, "int") == 0) {
+            result->intVal = 0;
+        } else if (strcmp(lval->elementType, "float") == 0) {
+            result->doubleVal = 0.0;
+        } else if (strcmp(lval->elementType, "bool") == 0) {
+            result->intVal = 0;
+        } else if (strcmp(lval->elementType, "string") == 0) {
+            result->strVal = "";
+        }
+        
+        return result;
+    } else if (lval->type == LVALUE_STRUCT_FIELD) {
+        // Para acesso a campo de struct, gerar código C de acesso
+        ExpressionResult* result = malloc(sizeof(ExpressionResult));
+        if (!result) {
+            semantic_error("Erro de alocação de memória para resultado de expressão");
+            return NULL;
+        }
+        
+        result->type = strdup(lval->elementType);
+        result->strVal = NULL;
+        
+        // Gera código C para acesso ao campo: struct_var.field_name
+        char field_access[256];
+        snprintf(field_access, sizeof(field_access), "%s.%s", lval->varName, lval->fieldName);
+        result->c_code = strdup(field_access);
         
         // Definir valores padrão baseados no tipo
         if (strcmp(lval->elementType, "int") == 0) {
@@ -502,14 +524,14 @@ ExpressionResult* handle_len_expression(ExpressionResult* array_expr) {
 }
 
 ExpressionResult* handle_array_literal(const char* element_type) {
-    // Create array literal expression
+    // Cria expressão de literal de array
     ExpressionResult* result = malloc(sizeof(ExpressionResult));
     if (!result) {
         semantic_error("Erro de alocação de memória");
         return NULL;
     }
     
-    // Create array type
+    // Cria tipo de array
     char* array_type = malloc(strlen(element_type) + 3);
     if (!array_type) {
         semantic_error("Erro de alocação de memória");
@@ -520,21 +542,21 @@ ExpressionResult* handle_array_literal(const char* element_type) {
     sprintf(array_type, "%s[]", element_type);
     result->type = array_type;
     result->intVal = 0;
-    result->c_code = strdup("{/* array literal */}");
+    result->c_code = strdup("{/* literal de array */}");
     result->strVal = NULL;
     
     return result;
 }
 
 ExpressionResult* handle_array_literal_with_values(const char* values) {
-    // Create array literal expression with actual values
+    // Cria expressão de literal de array com valores reais
     ExpressionResult* result = malloc(sizeof(ExpressionResult));
     if (!result) {
         semantic_error("Erro de alocação de memória");
         return NULL;
     }
     
-    // Set type to int[] (we'll need to infer this better later)
+    // Define tipo como int[] (precisaremos inferir isso melhor depois)
     result->type = strdup("int[]");
     result->intVal = 0;
     
@@ -544,7 +566,7 @@ ExpressionResult* handle_array_literal_with_values(const char* values) {
         sprintf(c_code, "{%s}", values);
         result->c_code = c_code;
     } else {
-        result->c_code = strdup("{/* array literal */}");
+        result->c_code = strdup("{/* literal de array */}");
     }
     
     result->strVal = NULL;
@@ -649,9 +671,9 @@ void handle_parameter_declaration(const char* type, const char* param_name) {
 
 // Function parameter handling
 void handle_function_parameter(const char* type, const char* param_name) {
-    // This will be handled by collecting parameters and emitting them
+    // Isso será tratado coletando parâmetros e emitindo-os
     // in the function signature. For now, just add to parameter list.
-    // TODO: Implement parameter collection and emission
+    // TODO: Implementar coleta e emissão de parâmetros
 }
 
 // Break statement
