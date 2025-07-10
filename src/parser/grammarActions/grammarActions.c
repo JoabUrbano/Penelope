@@ -521,9 +521,16 @@ ExpressionResult* handle_len_expression(ExpressionResult* array_expr) {
     }
     
     result->type = strdup("int");
-    result->intVal = 5;
+    result->intVal = 0; 
     
-    result->c_code = strdup("5");
+    char* len_code = malloc(strlen(array_expr->c_code) + 50);
+    if (len_code) {
+        sprintf(len_code, "get_array_length(%s)", array_expr->c_code);
+        result->c_code = len_code;
+    } else {
+        result->c_code = strdup("0");
+    }
+    
     result->strVal = NULL;
     
     return result;
