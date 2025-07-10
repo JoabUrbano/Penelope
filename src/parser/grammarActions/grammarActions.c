@@ -7,20 +7,6 @@
 
 #define _GNU_SOURCE  // para strdup
 
-/**
- * Módulo de Ações da Gramática
- * 
- * Este módulo serve como uma camada fina de orquestração entre o parser e 
- * os módulos de análise semântica e geração de código. Ele manipula ações do parser
- * delegando análise semântica para semantics.c e geração de código para codeGenerator.c.
- * 
- * Responsabilidades:
- * - Orquestrar chamadas para funções de análise semântica
- * - Orquestrar chamadas para funções de geração de código
- * - Gerenciar estado do parser
- * - Ponte entre regras da gramática do parser e lógica semântica/de geração de código
- */
-
 // Ações de Declaração de Variáveis
 void handle_var_declaration(const char* type, const char* var_name) {
     // Análise semântica: validar e declarar variável
@@ -534,14 +520,14 @@ ExpressionResult* handle_len_expression(ExpressionResult* array_expr) {
 }
 
 ExpressionResult* handle_array_literal(const char* element_type) {
-    // Create array literal expression
+    // Cria expressão de literal de array
     ExpressionResult* result = malloc(sizeof(ExpressionResult));
     if (!result) {
         semantic_error("Erro de alocação de memória");
         return NULL;
     }
     
-    // Create array type
+    // Cria tipo de array
     char* array_type = malloc(strlen(element_type) + 3);
     if (!array_type) {
         semantic_error("Erro de alocação de memória");
@@ -552,21 +538,21 @@ ExpressionResult* handle_array_literal(const char* element_type) {
     sprintf(array_type, "%s[]", element_type);
     result->type = array_type;
     result->intVal = 0;
-    result->c_code = strdup("{/* array literal */}");
+    result->c_code = strdup("{/* literal de array */}");
     result->strVal = NULL;
     
     return result;
 }
 
 ExpressionResult* handle_array_literal_with_values(const char* values) {
-    // Create array literal expression with actual values
+    // Cria expressão de literal de array com valores reais
     ExpressionResult* result = malloc(sizeof(ExpressionResult));
     if (!result) {
         semantic_error("Erro de alocação de memória");
         return NULL;
     }
     
-    // Set type to int[] (we'll need to infer this better later)
+    // Define tipo como int[] (precisaremos inferir isso melhor depois)
     result->type = strdup("int[]");
     result->intVal = 0;
     
@@ -576,7 +562,7 @@ ExpressionResult* handle_array_literal_with_values(const char* values) {
         sprintf(c_code, "{%s}", values);
         result->c_code = c_code;
     } else {
-        result->c_code = strdup("{/* array literal */}");
+        result->c_code = strdup("{/* literal de array */}");
     }
     
     result->strVal = NULL;
@@ -681,9 +667,9 @@ void handle_parameter_declaration(const char* type, const char* param_name) {
 
 // Function parameter handling
 void handle_function_parameter(const char* type, const char* param_name) {
-    // This will be handled by collecting parameters and emitting them
+    // Isso será tratado coletando parâmetros e emitindo-os
     // in the function signature. For now, just add to parameter list.
-    // TODO: Implement parameter collection and emission
+    // TODO: Implementar coleta e emissão de parâmetros
 }
 
 // Break statement

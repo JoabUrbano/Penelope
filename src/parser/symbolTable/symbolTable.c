@@ -9,7 +9,7 @@ int scopeTop = -1;
 HashMap symbolTable = { NULL };
 char *currentScope = NULL;
 
-// Global struct definitions storage
+// Armazenamento global de definições de struct
 StructDefinition* struct_definitions = NULL;
 
 // Função para verificar compatibilidade entre tipos
@@ -113,7 +113,7 @@ char* get_function_return_type(const char* func_name) {
     return NULL;
 }
 
-// ========== STRUCT MANAGEMENT FUNCTIONS ==========
+// ========== FUNÇÕES DE GERENCIAMENTO DE STRUCT ==========
 
 void add_struct_field(StructField** fields, const char* field_name, const char* field_type) {
     StructField* new_field = malloc(sizeof(StructField));

@@ -25,7 +25,7 @@ Data copy_data(Data src) {
 
 // Libera a memória interna de um Data
 void free_data(Data data) {
-    // Check string type before freeing the type pointer
+    // Verifica tipo string antes de liberar o ponteiro do tipo
     int is_string = (data.type != NULL && strcmp(data.type, "string") == 0);
     
     if (data.type != NULL) {

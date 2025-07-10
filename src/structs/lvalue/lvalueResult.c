@@ -42,7 +42,7 @@ LValueResult* create_lvalue_struct_field(char* varName, char* fieldName, char* s
     result->varName = strdup(varName);
     result->fieldName = strdup(fieldName);
     result->structType = strdup(structType);
-    result->elementType = strdup(fieldType); // The field type
+    result->elementType = strdup(fieldType); // O tipo do campo
     result->dimensionCount = 0;
     result->indexExpressions = NULL;
     return result;
@@ -58,7 +58,7 @@ void free_lvalue_result(LValueResult* lval) {
             }
             free(lval->indexExpressions);
         }
-        // Only free struct-specific fields if they exist
+        // Libera apenas campos específicos de struct se existirem
         if (lval->type == LVALUE_STRUCT_FIELD) {
             free(lval->fieldName);
             free(lval->structType);
