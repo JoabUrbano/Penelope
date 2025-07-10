@@ -21,6 +21,9 @@ extern int current_loop_exit_label;
 // Controle de função atual
 extern int in_main_function;
 
+// Function context tracking for proper array allocation
+extern char* current_function_return_type;
+
 // Controle de geração de código
 void disable_code_generation();
 void enable_code_generation();

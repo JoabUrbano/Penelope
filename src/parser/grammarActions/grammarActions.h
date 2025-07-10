@@ -78,6 +78,7 @@ ExpressionResult* handle_logical_not(ExpressionResult* expr);
 
 // Funções de ações da gramática para outras expressões
 ExpressionResult* handle_function_call(const char* func_name);
+ExpressionResult* handle_function_call_with_args(const char* func_name, const char* args);
 ExpressionResult* handle_len_expression(ExpressionResult* array_expr);
 ExpressionResult* handle_array_literal(const char* element_type);
 ExpressionResult* handle_array_literal_with_values(const char* values);
@@ -97,5 +98,9 @@ void handle_for_end();
 
 // Funções de ações da gramática para parâmetros
 void handle_parameter_declaration(const char* type, const char* param_name);
+void handle_function_parameter(const char* type, const char* param_name);
+
+// Return statement handling
+void handle_return_statement(ExpressionResult* expr);
 
 #endif // GRAMMAR_ACTIONS_H

@@ -1,4 +1,5 @@
 %{
+#include <stddef.h>
 #include "../src/parser/grammarActions/grammarActions.h"
 #include "../src/parser/codeGenerator/codeGenerator.h"
 #include "../src/parser/semantics/semantics.h"
@@ -11,6 +12,35 @@
 extern int yylineno;
 extern int yylex();
 extern void yyerror(const char* s);
+
+// Parameter collection for function signatures
+typedef struct FunctionParam {
+    char* type;
+    char* name;
+    struct FunctionParam* next;
+} FunctionParam;
+
+FunctionParam* current_function_params = NULL;
+char* current_function_name = NULL;
+char* current_function_return_type = NULL;
+
+// Argument collection for function calls
+typedef struct FunctionArg {
+    char* code;
+    struct FunctionArg* next;
+} FunctionArg;
+
+FunctionArg* current_function_args = NULL;
+
+// Forward declarations for helper functions
+void add_function_parameter(const char* type, const char* name);
+void clear_function_parameters();
+void clear_function_context();
+void emit_function_signature();
+void emit_function_signature_with_info(const char* return_type, const char* function_name);
+void add_function_argument(const char* arg_code);
+void clear_function_arguments();
+char* get_function_arguments();
 
 %}
 
@@ -86,42 +116,47 @@ decl_or_fun:
 
 fun:
     FUN type ID LPAREN {
+        // Store function information for parameter collection
+        current_function_name = strdup($3);
+        current_function_return_type = strdup($2);
+        clear_function_parameters(); // Clear any previous parameters
+        
         // Armazena informações da função na tabela de símbolos
         store_function($3, $2);
+        
+        // Always enable code generation for all functions
+        enable_code_generation();
         
         // Verifica se é a função main
         if (strcmp($3, "main") == 0) {
             in_main_function = 1;
-            enable_code_generation();
-            // Emite o início da função main
-            if (generate_code) {
-                emit_line("int main() {");
-                increase_indent();
-            }
         } else {
             in_main_function = 0;
-            disable_code_generation(); // Desabilita geração para funções que não são main
         }
         
         // Cria o escopo da função antes de processar parâmetros
         char *scopeId = uniqueIdentifier();
         push_scope(scopeId);
-    } list_param_opt RPAREN LBRACE list_stmt RBRACE {
+    } list_param_opt RPAREN LBRACE {
+        // Now emit the function signature with all collected parameters
+        // Pass the function information directly instead of using global variables
+        emit_function_signature_with_info($2, $3);
+    } list_stmt RBRACE {
         // Remove o escopo da função
         pop_scope();
         
-        // Fecha a função main se estávamos nela
-        if (in_main_function) {
-            if (generate_code) {
+        // Fecha a função
+        if (generate_code) {
+            if (in_main_function) {
                 emit_line("return 0;");
-                decrease_indent();
-                emit_line("}");
             }
-        } else {
-            // Reabilita geração de código após processar função não-main
-            enable_code_generation();
+            decrease_indent();
+            emit_line("}");
         }
         
+        // Clear function parameters and context
+        clear_function_parameters();
+        clear_function_context();
         in_main_function = 0;
     }
     ;
@@ -332,12 +367,18 @@ param:
             
             insert_node(&symbolTable, fullKey, data);
             free(fullKey);
+            
+            // Add parameter to collection for function signature generation
+            add_function_parameter($1, $3);
         }
     }
     ;
 
 return_stmt:
-    RETURN expression { /* Poderia adicionar verificação de tipo de retorno aqui */ }
+    RETURN expression { 
+        handle_return_statement($2);
+        free_expression_result($2);
+    }
     ;
 
 print_stmt: 
@@ -561,7 +602,8 @@ expression:
         free_expression_result($2);
     }
     | ID LPAREN arg_list_opt RPAREN {
-        $$ = handle_function_call($1);
+        $$ = handle_function_call_with_args($1, get_function_arguments());
+        clear_function_arguments();
     }
     | LEN LPAREN expression RPAREN {
         $$ = handle_len_expression($3);
@@ -574,13 +616,56 @@ expression:
     ;
 
 arg_list_opt:
-                                                   { /* vazio */ }
-    | arg_list                                     { /* lista de argumentos */ }
+                                                   { 
+        clear_function_arguments(); // Clear any previous arguments
+    }
+    | arg_list                                     { /* lista de argumentos já coletada */ }
     ;
 
 arg_list:
-    expression                                     { /* argumento único */ }
-    | arg_list COMMA expression                    { /* múltiplos argumentos */ }
+    expression                                     { 
+        clear_function_arguments(); // Clear for first argument
+        if ($1->c_code) {
+            add_function_argument($1->c_code);
+        } else {
+            // Convert expression value to string
+            char temp[100];
+            if (strcmp($1->type, "int") == 0) {
+                sprintf(temp, "%d", $1->intVal);
+            } else if (strcmp($1->type, "float") == 0) {
+                sprintf(temp, "%f", $1->doubleVal);
+            } else if (strcmp($1->type, "bool") == 0) {
+                sprintf(temp, "%d", $1->intVal);
+            } else if (strcmp($1->type, "string") == 0 && $1->strVal) {
+                sprintf(temp, "%s", $1->strVal);
+            } else {
+                sprintf(temp, "0");
+            }
+            add_function_argument(temp);
+        }
+        free_expression_result($1);
+    }
+    | arg_list COMMA expression                    { 
+        if ($3->c_code) {
+            add_function_argument($3->c_code);
+        } else {
+            // Convert expression value to string
+            char temp[100];
+            if (strcmp($3->type, "int") == 0) {
+                sprintf(temp, "%d", $3->intVal);
+            } else if (strcmp($3->type, "float") == 0) {
+                sprintf(temp, "%f", $3->doubleVal);
+            } else if (strcmp($3->type, "bool") == 0) {
+                sprintf(temp, "%d", $3->intVal);
+            } else if (strcmp($3->type, "string") == 0 && $3->strVal) {
+                sprintf(temp, "%s", $3->strVal);
+            } else {
+                sprintf(temp, "0");
+            }
+            add_function_argument(temp);
+        }
+        free_expression_result($3);
+    }
     ;
 
 array_values:
@@ -609,4 +694,176 @@ void yyerror(const char* s) {
     extern int yylineno;
     fprintf(stderr, "Erro de Sintaxe: erro de sintaxe na linha %d\n", yylineno);
     syntax_errors++;
+}
+
+// Helper functions for parameter collection
+void add_function_parameter(const char* type, const char* name) {
+    FunctionParam* param = malloc(sizeof(FunctionParam));
+    param->type = strdup(type);
+    param->name = strdup(name);
+    param->next = current_function_params;
+    current_function_params = param;
+}
+
+void clear_function_parameters() {
+    while (current_function_params) {
+        FunctionParam* temp = current_function_params;
+        current_function_params = current_function_params->next;
+        free(temp->type);
+        free(temp->name);
+        free(temp);
+    }
+    // Don't clear function name and return type here - they should persist during function parsing
+}
+
+void clear_function_context() {
+    if (current_function_name) {
+        free(current_function_name);
+        current_function_name = NULL;
+    }
+    if (current_function_return_type) {
+        free(current_function_return_type);
+        current_function_return_type = NULL;
+    }
+}
+
+void emit_function_signature() {
+    if (!generate_code) return;
+    if (!current_function_name || !current_function_return_type) return;
+    
+    if (strcmp(current_function_name, "main") == 0) {
+        emit_line("int main() {");
+        increase_indent();
+        return;
+    }
+    
+    // Convert return type to C
+    char* c_return_type = convert_penelope_type_to_c(current_function_return_type);
+    if (!c_return_type) {
+        c_return_type = strdup("int"); // fallback
+    }
+    
+    // Build parameter list
+    char param_list[1000] = "";
+    
+    if (current_function_params) {
+        // Collect parameters in reverse order (since we added them backwards)
+        FunctionParam* params[100];
+        int param_count = 0;
+        
+        FunctionParam* curr = current_function_params;
+        while (curr && param_count < 100) {
+            params[param_count++] = curr;
+            curr = curr->next;
+        }
+        
+        // Build parameter string in correct order
+        for (int i = param_count - 1; i >= 0; i--) {
+            char* c_param_type = convert_penelope_type_to_c(params[i]->type);
+            if (c_param_type) {
+                if (strlen(param_list) > 0) {
+                    strcat(param_list, ", ");
+                }
+                strcat(param_list, c_param_type);
+                strcat(param_list, " ");
+                strcat(param_list, params[i]->name);
+            }
+        }
+    }
+    
+    emit_line("%s %s(%s) {", c_return_type, current_function_name, param_list);
+    increase_indent();
+}
+
+void emit_function_signature_with_info(const char* return_type, const char* function_name) {
+    if (!generate_code) return;
+    if (!function_name || !return_type) return;
+    
+    if (strcmp(function_name, "main") == 0) {
+        emit_line("int main() {");
+        increase_indent();
+        return;
+    }
+    
+    // Convert return type to C
+    char* c_return_type = convert_penelope_type_to_c(return_type);
+    if (!c_return_type) {
+        c_return_type = strdup("int"); // fallback
+    }
+    
+    // Build parameter list
+    char param_list[1000] = "";
+    
+    if (current_function_params) {
+        // Collect parameters in reverse order (since we added them backwards)
+        FunctionParam* params[100];
+        int param_count = 0;
+        
+        FunctionParam* curr = current_function_params;
+        while (curr && param_count < 100) {
+            params[param_count++] = curr;
+            curr = curr->next;
+        }
+        
+        // Build parameter string in correct order
+        for (int i = param_count - 1; i >= 0; i--) {
+            char* c_param_type = convert_penelope_type_to_c(params[i]->type);
+            if (c_param_type) {
+                if (strlen(param_list) > 0) {
+                    strcat(param_list, ", ");
+                }
+                strcat(param_list, c_param_type);
+                strcat(param_list, " ");
+                strcat(param_list, params[i]->name);
+            }
+        }
+    }
+    
+    emit_line("%s %s(%s) {", c_return_type, function_name, param_list);
+    increase_indent();
+}
+
+// Argument collection functions
+void add_function_argument(const char* arg_code) {
+    FunctionArg* arg = malloc(sizeof(FunctionArg));
+    arg->code = strdup(arg_code);
+    arg->next = current_function_args;
+    current_function_args = arg;
+}
+
+void clear_function_arguments() {
+    while (current_function_args) {
+        FunctionArg* temp = current_function_args;
+        current_function_args = current_function_args->next;
+        free(temp->code);
+        free(temp);
+    }
+}
+
+char* get_function_arguments() {
+    if (!current_function_args) return strdup("");
+    
+    char* result = malloc(1000);
+    result[0] = '\0';
+    
+    // Build argument list in reverse order (since we added them backwards)
+    FunctionArg* args[100]; // temporary array to reverse
+    int arg_count = 0;
+    
+    // Collect arguments in array
+    FunctionArg* curr = current_function_args;
+    while (curr && arg_count < 100) {
+        args[arg_count++] = curr;
+        curr = curr->next;
+    }
+    
+    // Build argument string in correct order
+    for (int i = arg_count - 1; i >= 0; i--) {
+        if (strlen(result) > 0) {
+            strcat(result, ", ");
+        }
+        strcat(result, args[i]->code);
+    }
+    
+    return result;
 }

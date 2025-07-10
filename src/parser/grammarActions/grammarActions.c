@@ -426,8 +426,49 @@ ExpressionResult* handle_function_call(const char* func_name) {
     
     result->type = return_type;  // Usa o tipo de retorno correto
     result->intVal = 0;
-    result->c_code = NULL;
     result->strVal = NULL;
+    
+    // Generate function call code
+    char* call_code = malloc(strlen(func_name) + 10);
+    if (call_code) {
+        sprintf(call_code, "%s()", func_name);
+        result->c_code = call_code;
+    } else {
+        result->c_code = NULL;
+    }
+    
+    return result;
+}
+
+// Function call with arguments
+ExpressionResult* handle_function_call_with_args(const char* func_name, const char* args) {
+    // Busca o tipo de retorno da função na tabela de símbolos
+    char* return_type = get_function_return_type(func_name);
+    
+    if (!return_type) {
+        semantic_error("Função '%s' não foi declarada", func_name);
+        return NULL;
+    }
+    
+    ExpressionResult* result = malloc(sizeof(ExpressionResult));
+    if (!result) {
+        semantic_error("Erro de alocação de memória");
+        free(return_type);
+        return NULL;
+    }
+    
+    result->type = return_type;  // Usa o tipo de retorno correto
+    result->intVal = 0;
+    result->strVal = NULL;
+    
+    // Generate function call code with arguments
+    char* call_code = malloc(strlen(func_name) + strlen(args) + 10);
+    if (call_code) {
+        sprintf(call_code, "%s(%s)", func_name, args);
+        result->c_code = call_code;
+    } else {
+        result->c_code = NULL;
+    }
     
     return result;
 }
@@ -602,6 +643,13 @@ void handle_parameter_declaration(const char* type, const char* param_name) {
     declare_variable(type, param_name, NULL);
 }
 
+// Function parameter handling
+void handle_function_parameter(const char* type, const char* param_name) {
+    // This will be handled by collecting parameters and emitting them
+    // in the function signature. For now, just add to parameter list.
+    // TODO: Implement parameter collection and emission
+}
+
 // Break statement
 void handle_break_statement() {
     // Gerar código para break
@@ -609,5 +657,26 @@ void handle_break_statement() {
         emit_line("goto L%d;", current_loop_exit_label);
     } else {
         semantic_error("Break statement não pode ser usado fora de loop");
+    }
+}
+
+// Return statement handling
+void handle_return_statement(ExpressionResult* expr) {
+    if (!generate_code) return;
+    
+    if (expr && expr->c_code) {
+        emit_line("return %s;", expr->c_code);
+    } else if (expr) {
+        if (strcmp(expr->type, "int") == 0) {
+            emit_line("return %d;", expr->intVal);
+        } else if (strcmp(expr->type, "float") == 0) {
+            emit_line("return %f;", expr->doubleVal);
+        } else if (strcmp(expr->type, "bool") == 0) {
+            emit_line("return %d;", expr->intVal);
+        } else if (strcmp(expr->type, "string") == 0) {
+            emit_line("return %s;", expr->strVal ? expr->strVal : "\"\"");
+        }
+    } else {
+        emit_line("return;");
     }
 }
