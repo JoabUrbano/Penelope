@@ -66,6 +66,8 @@ char* get_function_arguments();
 %token BREAK
 %token AND 
 %token OR
+%token MODULO
+
 
 %token <num> INT FLOAT
 
@@ -83,6 +85,7 @@ char* get_function_arguments();
 %type <labelNum> while_start if_start
 
 %right ASSIGNMENT
+%left MULTIPLICATION DIVISION MODULO
 %left OR
 %left AND
 %left EQUALS
@@ -601,6 +604,11 @@ expression:
         free_expression_result($1);
         free_expression_result($3);
     }
+    | expression MODULO expression {
+    $$ = handle_modulo($1, $3);  // ou qualquer função que você use para tratar operadores
+    free_expression_result($1);
+    free_expression_result($3);
+}
     | SUBTRACTION expression %prec UMINUS {
         $$ = handle_unary_minus($2);
         if (!$$) YYABORT;
