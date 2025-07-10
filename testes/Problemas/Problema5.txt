@@ -1,7 +1,7 @@
 fun void mdc(int: n, int: m, int&: r) {
-    if (m % n == 0) {
+    if ((m % n) == 0) {
         r = n;
-    } else if (n % m == 0) {
+    } else if ((n % m) == 0) {
         r = m;
     } else if (m > n) {
         mdc(n, m % n, r);

@@ -106,6 +106,7 @@ int validate_array_access(const char* var_name, ExpressionResult* index) {
 }
 
 int validate_binary_operation(ExpressionResult* left, ExpressionResult* right, const char* operation) {
+    printf("Operação %s entre %s e %s\n", operation, left->type, right->type);
     if (strcmp(operation, "+") == 0 || strcmp(operation, "-") == 0 || 
     strcmp(operation, "*") == 0 || strcmp(operation, "/") == 0 ||
     strcmp(operation, "^") == 0 || strcmp(operation, "%") == 0) {
@@ -186,22 +187,19 @@ int validate_unary_operation(ExpressionResult* expr, const char* operation) {
     return 0;
 }
 
-// Funções de análise semântica para verificação de tipos
 int check_type_compatibility(const char* expected_type, const char* actual_type) {
-    // Compatíveis se forem exatamente iguais
-    if (strcmp(expected_type, actual_type) == 0) {
-        return 1;
-    }
+    // Remove '&' se for tipo por referência
+    char expected_clean[32], actual_clean[32];
+    strcpy(expected_clean, expected_type);
+    strcpy(actual_clean, actual_type);
+    if (expected_clean[strlen(expected_clean)-1] == '&') expected_clean[strlen(expected_clean)-1] = '\0';
+    if (actual_clean[strlen(actual_clean)-1] == '&') actual_clean[strlen(actual_clean)-1] = '\0';
 
-    // Compatibilidade entre int e float (inclusive com &)
-    if ((strstr(expected_type, "float") && strstr(actual_type, "int")) ||
-        (strstr(expected_type, "int") && strstr(actual_type, "float"))) {
-        return 1;
-    }
+    if (strcmp(expected_clean, actual_clean) == 0) return 1;
 
-    // Compatibilidade entre tipos com e sem referência
-    if ((strstr(expected_type, "int") && strstr(actual_type, "int")) ||
-        (strstr(expected_type, "float") && strstr(actual_type, "float"))) {
+    // Compatibilidade int <-> float
+    if ((strcmp(expected_clean, "float") == 0 && strcmp(actual_clean, "int") == 0) ||
+        (strcmp(expected_clean, "int") == 0 && strcmp(actual_clean, "float") == 0)) {
         return 1;
     }
 
@@ -502,27 +500,36 @@ ExpressionResult* evaluate_variable_access(const char* var_name) {
         semantic_error("Variável '%s' não declarada", var_name);
         return NULL;
     }
-    
+
     ExpressionResult* result = malloc(sizeof(ExpressionResult));
     if (!result) {
         semantic_error("Erro de alocação de memória para resultado de expressão");
         return NULL;
     }
-    
-    result->type = strdup(var_data->type);
+
+    // Ajuste do tipo para remover '&' se for referência
+    char* raw_type = strdup(var_data->type);
+    if (raw_type[strlen(raw_type) - 1] == '&') {
+        raw_type[strlen(raw_type) - 1] = '\0'; // remove o &
+    }
+    result->type = strdup(raw_type);
+    free(raw_type);
+
     result->c_code = strdup(var_name);  // C code é simplesmente o nome da variável
     result->strVal = NULL;
-    
-    if (strcmp(var_data->type, "int") == 0) {
+
+    if (strcmp(result->type, "int") == 0) {
         result->intVal = var_data->value.intVal;
-    } else if (strcmp(var_data->type, "float") == 0) {
+    } else if (strcmp(result->type, "float") == 0) {
         result->doubleVal = var_data->value.doubleVal;
-    } else if (strcmp(var_data->type, "bool") == 0) {
+    } else if (strcmp(result->type, "bool") == 0) {
         result->intVal = var_data->value.intVal;
-    } else if (strcmp(var_data->type, "string") == 0) {
+    } else if (strcmp(result->type, "string") == 0) {
         result->strVal = strdup(var_data->value.strVal ? var_data->value.strVal : "");
     }
-    
+
+    printf("DEBUG: variável %s tem tipo %s\n", var_name, result->type);
+
     return result;
 }
 
