@@ -327,29 +327,44 @@ int assign_to_variable(const char* var_name, ExpressionResult* value) {
         semantic_error("Variável '%s' não declarada", var_name);
         return 0;
     }
-    
+
     if (!check_type_compatibility(var_data->type, value->type)) {
         semantic_error("Tipo incompatível na atribuição à variável '%s'", var_name);
         return 0;
     }
-    
+
     // Atualiza valor na tabela de símbolos
-    if (strcmp(var_data->type, "int") == 0) {
+    if (strcmp(var_data->type, "int") == 0 || strcmp(var_data->type, "int&") == 0) {
         var_data->value.intVal = value->intVal;
-    } else if (strcmp(var_data->type, "float") == 0) {
+    } else if (strcmp(var_data->type, "float") == 0 || strcmp(var_data->type, "float&") == 0) {
         var_data->value.doubleVal = value->doubleVal;
-    } else if (strcmp(var_data->type, "bool") == 0) {
+    } else if (strcmp(var_data->type, "bool") == 0 || strcmp(var_data->type, "bool&") == 0) {
         var_data->value.intVal = value->intVal;
-    } else if (strcmp(var_data->type, "string") == 0) {
-        // Libera o valor antigo da string para evitar vazamento de memória
+    } else if (strcmp(var_data->type, "string") == 0 || strcmp(var_data->type, "string&") == 0) {
         if (var_data->value.strVal) {
             free(var_data->value.strVal);
         }
         var_data->value.strVal = strdup(value->strVal);
     }
-    
+
+    // Geração de código C
+    if (generate_code) {
+        char* c_expr = expression_to_c_code(value);
+        char assignment_line[256];
+
+        // Se termina com '&', é ponteiro → usa *nome
+        if (strchr(var_data->type, '&') != NULL) {
+            snprintf(assignment_line, sizeof(assignment_line), "*%s = %s;", var_name, c_expr);
+        } else {
+            snprintf(assignment_line, sizeof(assignment_line), "%s = %s;", var_name, c_expr);
+        }
+
+        emit_line(assignment_line);
+    }
+
     return 1;
 }
+
 
 int increment_variable(const char* var_name) {
     Data* var_data = find_variable(var_name);
