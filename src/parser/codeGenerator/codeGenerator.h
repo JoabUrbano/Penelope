@@ -22,6 +22,9 @@ extern int current_loop_exit_label;
 // Controle de função atual
 extern int in_main_function;
 
+// Controle de contexto else if
+extern int in_else_if_context;
+
 // Rastreamento de contexto de função para alocação apropriada de array
 extern char* current_function_return_type;
 

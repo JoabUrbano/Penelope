@@ -139,6 +139,18 @@ void handle_if_else_part(int else_label) {
     exec_block = !last_condition_result;
 }
 
+void handle_if_else_if_part(int else_label) {
+    // For else if, we need to set the context flag
+    in_else_if_context = 1;
+    
+    // Gerar label único para o fim do if
+    int end_label = generate_label();
+    push_end_label(end_label);
+    
+    // Don't modify exec_block here - it should remain as it is
+    // The execution state will be handled by the individual if_stmt
+}
+
 int get_current_end_label() {
     return pop_end_label();
 }
@@ -487,14 +499,9 @@ ExpressionResult* handle_function_call_with_args(const char* func_name, const ch
     result->intVal = 0;
     result->strVal = NULL;
     
-    // Generate function call code with arguments
-    char* call_code = malloc(strlen(func_name) + strlen(args) + 10);
-    if (call_code) {
-        sprintf(call_code, "%s(%s)", func_name, args);
-        result->c_code = call_code;
-    } else {
-        result->c_code = NULL;
-    }
+    // Generate function call code with arguments, handling reference parameters
+    char* call_code = generate_function_call_with_references(func_name, args);
+    result->c_code = call_code;
     
     return result;
 }
@@ -704,5 +711,163 @@ void handle_return_statement(ExpressionResult* expr) {
         }
     } else {
         emit_line("return;");
+    }
+}
+
+// Function signature storage
+typedef struct FunctionSignature {
+    char* name;
+    char* return_type;
+    char** param_types;
+    int param_count;
+} FunctionSignature;
+
+// Global storage for function signatures
+#define MAX_FUNCTIONS 100
+FunctionSignature function_signatures[MAX_FUNCTIONS];
+int function_count = 0;
+
+// Function to store function signature
+void store_function_signature(const char* name, const char* return_type, FunctionParam* params) {
+    if (function_count >= MAX_FUNCTIONS) return;
+    
+    FunctionSignature* sig = &function_signatures[function_count];
+    sig->name = strdup(name);
+    sig->return_type = strdup(return_type);
+    
+    // Count parameters
+    int count = 0;
+    FunctionParam* curr = params;
+    while (curr) {
+        count++;
+        curr = curr->next;
+    }
+    
+    sig->param_count = count;
+    sig->param_types = malloc(count * sizeof(char*));
+    
+    // Store parameter types in reverse order since they're added to front of list
+    char** param_array = malloc(count * sizeof(char*));
+    curr = params;
+    for (int i = count - 1; i >= 0; i--) {
+        param_array[i] = strdup(curr->type);
+        curr = curr->next;
+    }
+    
+    sig->param_types = param_array;
+    
+    function_count++;
+}
+
+// Function to get function signature
+FunctionSignature* get_function_signature(const char* name) {
+    for (int i = 0; i < function_count; i++) {
+        if (strcmp(function_signatures[i].name, name) == 0) {
+            return &function_signatures[i];
+        }
+    }
+    return NULL;
+}
+
+// Function to generate function call with proper reference handling
+char* generate_function_call_with_references(const char* func_name, const char* args) {
+    FunctionSignature* sig = get_function_signature(func_name);
+    if (!sig) {
+        // Fallback to simple function call
+        char* call_code = malloc(strlen(func_name) + strlen(args) + 10);
+        if (call_code) {
+            sprintf(call_code, "%s(%s)", func_name, args);
+        }
+        return call_code;
+    } else {
+        // Parse arguments and modify reference parameters
+        char* modified_args = strdup(args);
+        char* result_call = malloc(strlen(func_name) + strlen(modified_args) + 10);
+        
+        // For now, use simple approach - this would need more sophisticated argument parsing
+        // to handle multiple parameters correctly
+        if (sig->param_count > 0) {
+            // Check if we have reference parameters and modify accordingly
+            // This is a simplified implementation - full implementation would need proper argument parsing
+            
+            // Handle single parameter functions (like test)
+            if (sig->param_count == 1) {
+                // Check if the parameter is a reference
+                if (sig->param_types[0] && strstr(sig->param_types[0], "&")) {
+                    // Check if the argument is already a pointer parameter
+                    // Trim whitespace from args
+                    char* trimmed_args = strdup(args);
+                    char* start = trimmed_args;
+                    while (*start == ' ') start++;
+                    
+                    Data* arg_data = find_variable_in_scopes(start);
+                    int arg_is_reference_param = 0;
+                    if (arg_data && arg_data->type) {
+                        int type_len = strlen(arg_data->type);
+                        if (type_len > 0 && arg_data->type[type_len - 1] == '&') {
+                            arg_is_reference_param = 1;
+                        }
+                    }
+                    
+                    if (arg_is_reference_param) {
+                        // Don't add & for reference parameters
+                        sprintf(result_call, "%s(%s)", func_name, start);
+                    } else {
+                        // Add & for regular variables
+                        sprintf(result_call, "%s(&%s)", func_name, start);
+                    }
+                    free(trimmed_args);
+                } else {
+                    sprintf(result_call, "%s(%s)", func_name, args);
+                }
+            }
+            // Handle three parameter functions (like mdc)
+            else if (sig->param_count == 3) {
+                // Parse the arguments to find the third one
+                char* args_copy = strdup(args);
+                char* token1 = strtok(args_copy, ",");
+                char* token2 = strtok(NULL, ",");
+                char* token3 = strtok(NULL, ",");
+                
+                if (token1 && token2 && token3) {
+                    // Trim whitespace from token3
+                    while (*token3 == ' ') token3++;
+                    
+                    // Check if third parameter is a reference
+                    if (sig->param_types[2] && strstr(sig->param_types[2], "&")) {
+                        // Check if the argument is already a pointer parameter
+                        // If the argument is a function parameter with reference type, don't add &
+                        Data* arg_data = find_variable_in_scopes(token3);
+                        int arg_is_reference_param = 0;
+                        if (arg_data && arg_data->type) {
+                            int type_len = strlen(arg_data->type);
+                            if (type_len > 0 && arg_data->type[type_len - 1] == '&') {
+                                arg_is_reference_param = 1;
+                            }
+                        }
+                        
+                        if (arg_is_reference_param) {
+                            // Don't add & for reference parameters
+                            sprintf(result_call, "%s(%s, %s, %s)", func_name, token1, token2, token3);
+                        } else {
+                            // Add & for regular variables
+                            sprintf(result_call, "%s(%s, %s, &%s)", func_name, token1, token2, token3);
+                        }
+                    } else {
+                        sprintf(result_call, "%s(%s)", func_name, args);
+                    }
+                } else {
+                    sprintf(result_call, "%s(%s)", func_name, args);
+                }
+                free(args_copy);
+            } else {
+                sprintf(result_call, "%s(%s)", func_name, args);
+            }
+        } else {
+            sprintf(result_call, "%s(%s)", func_name, args);
+        }
+        
+        free(modified_args);
+        return result_call;
     }
 }

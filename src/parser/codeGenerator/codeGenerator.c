@@ -15,6 +15,7 @@ int label_counter = 0;
 int inline_mode = 0;
 int current_loop_exit_label = -1;
 int in_main_function = 0;
+int in_else_if_context = 0;
 
 // Função para desabilitar temporariamente a geração de código
 void disable_code_generation() {
@@ -123,7 +124,7 @@ void emit_2d_array_allocation_if_needed(const char* var_name, const char* rows_v
 // Funções de conversão de tipos
 char* convert_penelope_type_to_c(const char* penelopeType) {
     if (strcmp(penelopeType, "int") == 0) return "int";
-    if (strcmp(penelopeType, "bool") == 0) return "int";  // bool -> int em C
+    if (strcmp(penelopeType, "bool") == 0) return "int";  // bool -> int in C
     if (strcmp(penelopeType, "float") == 0) return "float";
     if (strcmp(penelopeType, "string") == 0) return "char*";
     if (strcmp(penelopeType, "int[][]") == 0) return "int**";
@@ -131,15 +132,15 @@ char* convert_penelope_type_to_c(const char* penelopeType) {
     if (strstr(penelopeType, "int[]")) return "int*";
     if (strstr(penelopeType, "float[]")) return "float*";
     if (strstr(penelopeType, "string[]")) return "char**";
-    
-    // Verifica se é um tipo struct
-    StructDefinition* struct_def = find_struct_definition(penelopeType);
-    if (struct_def) {
-        return strdup(penelopeType); // Tipos struct usam o mesmo nome em C
-    }
-    
     if (strstr(penelopeType, "int&") != NULL) return strdup("int*"); // referência
     if (strstr(penelopeType, "float&") != NULL) return strdup("float*");
+    
+    // For struct types, return the same name (assume it's a valid C struct)
+    // This handles cases like "rational_t" -> "rational_t"
+    if (penelopeType && strlen(penelopeType) > 0) {
+        return strdup(penelopeType);  // Return a copy of the struct name
+    }
+    
     return "void"; // fallback padrão
 }
 
@@ -225,7 +226,7 @@ char* get_directory_from_path(const char* filepath) {
     }
 }
 
-// Funções de geração de código de expressão
+// Expression code generation functions
 void emit_expression_code(ExpressionResult* expr) {
     if (!generate_code || !expr) return;
     
@@ -303,13 +304,6 @@ void emit_assignment_code(LValueResult* lval, ExpressionResult* expr) {
                 emit_line("%s = %s;", lval->varName, expr->c_code ? expr->c_code : "0");
             }
         }
-    } else if (lval->type == LVALUE_STRUCT_FIELD) {
-        // Struct field assignment: struct_var.field = value
-        if (inline_mode) {
-            emit_inline("%s.%s = %s", lval->varName, lval->fieldName, expr->c_code ? expr->c_code : "0");
-        } else {
-            emit_line("%s.%s = %s;", lval->varName, lval->fieldName, expr->c_code ? expr->c_code : "0");
-        }
     }
 }
 
@@ -333,12 +327,12 @@ void emit_decrement_code(LValueResult* lval) {
     }
 }
 
-// Funções de geração de código de fluxo de controle
+// Control flow code generation functions
 void emit_while_start_code(ExpressionResult* condition, int start_label, int end_label) {
     if (!generate_code) return;
     
     emit_line("L%d:", start_label);
-    emit_line("// condição do loop while");
+    emit_line("// while loop condition");
     
     if (condition->c_code) {
         emit_line("if (!(%s)) goto L%d;", condition->c_code, end_label);
@@ -352,36 +346,44 @@ void emit_while_end_code(int start_label, int end_label) {
     
     emit_line("goto L%d;", start_label);
     emit_line("L%d:", end_label);
-    emit_line("// fim do loop while");
+    emit_line("// end while loop");
 }
 
 void emit_if_start_code(ExpressionResult* condition, int else_label) {
     if (!generate_code) return;
     
-    emit_line("// condição if");
-    if (condition->c_code) {
-        emit_line("if (!(%s)) goto L%d;", condition->c_code, else_label);
+    if (in_else_if_context) {
+        // We're in an else if context, generate "} else if (condition) {"
+        if (condition->c_code) {
+            emit_line("} else if (%s) {", condition->c_code);
+        } else {
+            emit_line("} else if (1) {");
+        }
+        in_else_if_context = 0; // Reset the flag
     } else {
-        emit_line("if (!(1)) goto L%d;", else_label);
+        // Normal if statement
+        emit_line("// if condition");
+        if (condition->c_code) {
+            emit_line("if (%s) {", condition->c_code);
+        } else {
+            emit_line("if (1) {");
+        }
     }
 }
 
 void emit_if_else_code(int else_label, int end_label) {
     if (!generate_code) return;
     
-    emit_line("goto L%d;", end_label);
-    emit_line("L%d:", else_label);
-    emit_line("// parte else");
+    emit_line("} else {");
 }
 
 void emit_if_end_code(int end_label) {
     if (!generate_code) return;
     
-    emit_line("L%d:", end_label);
-    emit_line("// fim if");
+    emit_line("}");
 }
 
-// Funções de geração de código de E/S
+// I/O code generation functions
 void emit_print_code(ExpressionResult* expr) {
     emit_expression_code(expr);
 }
@@ -410,7 +412,7 @@ void emit_read_code(LValueResult* lval) {
     }
 }
 
-// Geração de código de declaração de variável
+// Variable declaration code generation
 void emit_var_declaration_code(const char* type, const char* var_name) {
     if (!generate_code) return;
     
@@ -418,9 +420,9 @@ void emit_var_declaration_code(const char* type, const char* var_name) {
     if (strstr(type, "[][]") != NULL) {
         // Para arrays 2D, apenas gera a declaração do ponteiro
         // A alocação será feita quando as dimensões forem conhecidas
-        emit_line("%s %s = NULL; // Declaração de Array 2D", c_type, var_name);
+        emit_line("%s %s = NULL; // 2D Array declaration", c_type, var_name);
     } else if (strstr(type, "[]") != NULL) {
-        emit_line("%s %s = NULL; // Declaração de Array", c_type, var_name);
+        emit_line("%s %s = NULL; // Array declaration", c_type, var_name);
     } else {
         emit_line("%s %s;", c_type, var_name);
     }
@@ -429,57 +431,57 @@ void emit_var_declaration_code(const char* type, const char* var_name) {
 void emit_var_assignment_code(const char* type, const char* var_name, ExpressionResult* expr) {
     if (!generate_code) return;
     
-    // Verifica se estamos em uma função que retorna um array e isso é um literal de array
+    // Check if we're in a function that returns an array and this is an array literal
     extern char* current_function_return_type;
     int in_array_returning_function = (current_function_return_type && strstr(current_function_return_type, "[]") != NULL);
     
     char* c_type = convert_penelope_type_to_c(type);
     if (expr->c_code) {
-        // Verifica se esta é uma inicialização de literal de array
+        // Check if this is an array literal initialization
         if (strstr(type, "[]") != NULL && expr->c_code[0] == '{') {
-            // Para literais de array em funções que retornam arrays, usa alocação dinâmica
+            // For array literals in functions that return arrays, use dynamic allocation
             if (in_array_returning_function) {
                 if (strstr(type, "int[]") != NULL) {
-                    // Analisa literal de array para contar elementos e obter valores
+                    // Parse array literal to count elements and get values
                     char* literal = expr->c_code;
                     if (strstr(literal, "{0, 0}") != NULL) {
-                        // Padrão comum para inicialização de array de 2 elementos
+                        // Common pattern for 2-element array initialization
                         emit_line("int* %s = malloc(2 * sizeof(int));", var_name);
                         emit_line("%s[0] = 0;", var_name);
                         emit_line("%s[1] = 0;", var_name);
                     } else {
-                        // Fallback: tenta alocar baseado no conteúdo do array
-                        emit_line("int* %s = malloc(2 * sizeof(int)); // Literal de array", var_name);
-                        emit_line("// TODO: Inicializar elementos do array de %s", literal);
+                        // Fallback: try to allocate based on array content
+                        emit_line("int* %s = malloc(2 * sizeof(int)); // Array literal", var_name);
+                        emit_line("// TODO: Initialize array elements from %s", literal);
                     }
                 } else if (strstr(type, "float[]") != NULL) {
                     emit_line("float* %s = malloc(2 * sizeof(float));", var_name);
                     emit_line("%s[0] = 0.0;", var_name);
                     emit_line("%s[1] = 0.0;", var_name);
                 } else {
-                    // Fallback para sintaxe de ponteiro com malloc
-                    emit_line("%s %s = malloc(2 * sizeof(int)); // Array genérico", c_type, var_name);
+                    // Fallback to pointer syntax with malloc
+                    emit_line("%s %s = malloc(2 * sizeof(int)); // Generic array", c_type, var_name);
                 }
             } else {
-                // Para funções que não retornam, usa alocação em pilha como antes
+                // For non-returning functions, use stack allocation as before
                 if (strstr(type, "int[]") != NULL) {
                     emit_line("int %s[] = %s;", var_name, expr->c_code);
                 } else if (strstr(type, "float[]") != NULL) {
                     emit_line("float %s[] = %s;", var_name, expr->c_code);
                 } else {
-                    // Fallback para sintaxe de ponteiro
+                    // Fallback to pointer syntax
                     emit_line("%s %s = %s;", c_type, var_name, expr->c_code);
                 }
             }
         } else if (strstr(type, "[]") != NULL && strstr(expr->c_code, "()") != NULL) {
-            // Esta é uma chamada de função que retorna um array
-            // Para chamadas de função que retornam arrays, precisamos declarar a variável e atribuir
+            // This is a function call that returns an array
+            // For function calls returning arrays, we need to declare the variable and assign
             if (strstr(type, "int[]") != NULL) {
                 emit_line("int* %s = %s;", var_name, expr->c_code);
             } else if (strstr(type, "float[]") != NULL) {
                 emit_line("float* %s = %s;", var_name, expr->c_code);
             } else {
-                // Fallback para sintaxe de ponteiro
+                // Fallback to pointer syntax
                 emit_line("%s %s = %s;", c_type, var_name, expr->c_code);
             }
         } else {
@@ -519,21 +521,21 @@ void emit_for_init_code(const char* type, const char* var_name, ExpressionResult
 
 // Função para inferir nomes de variáveis de dimensão baseado no nome do array
 void get_dimension_variable_names(const char* array_name, char* rows_var, char* cols_var) {
-    // Padrão 2: matrizSoma -> linhas1, colunas1 (mesmas dimensões das matrizes de entrada)
+    // Pattern 2: matrizSoma -> linhas1, colunas1 (mesmas dimensões das matrizes de entrada)
     if (strcmp(array_name, "matrizSoma") == 0) {
         strcpy(rows_var, "linhas1");
         strcpy(cols_var, "colunas1");
         return;
     }
     
-    // Padrão 3: matrizProduto -> linhasResultado, colunasResultado
+    // Pattern 3: matrizProduto -> linhasResultado, colunasResultado
     if (strcmp(array_name, "matrizProduto") == 0) {
         strcpy(rows_var, "linhasResultado");
         strcpy(cols_var, "colunasResultado");
         return;
     }
     
-    // Padrão 1: matriz{N} -> linhas{N}, colunas{N}
+    // Pattern 1: matriz{N} -> linhas{N}, colunas{N}
     if (strncmp(array_name, "matriz", 6) == 0) {
         const char* num_part = array_name + 6; // parte após "matriz"
         snprintf(rows_var, 64, "linhas%s", num_part);
@@ -541,7 +543,7 @@ void get_dimension_variable_names(const char* array_name, char* rows_var, char* 
         return;
     }
     
-    // Padrão 4: {name} -> {name}_rows, {name}_cols
+    // Pattern 4: {name} -> {name}_rows, {name}_cols
     snprintf(rows_var, 64, "%s_rows", array_name);
     snprintf(cols_var, 64, "%s_cols", array_name);
 }
@@ -562,37 +564,27 @@ void emit_auto_allocate_2d_array(const char* var_name) {
     emit_line("}");
 }
 
-// ========== GERAÇÃO DE CÓDIGO DE STRUCT ==========
-
+// Struct definition implementation
 void emit_struct_definition(const char* struct_name, StructField* fields) {
-    if (!generate_code) return;
+    if (!generate_code || !struct_name) return;
     
     emit_line("typedef struct {");
-    increase_indent();
     
-    // Emite campos em ordem reversa (já que são armazenados como lista ligada)
-    StructField* field_array[100];
-    int field_count = 0;
-    
+    // Emit each field
     StructField* current = fields;
-    while (current && field_count < 100) {
-        field_array[field_count++] = current;
+    while (current) {
+        char* c_type = convert_penelope_type_to_c(current->type);
+        emit_line("    %s %s;", c_type, current->name);
+        
+        // Free the allocated memory if it was dynamically allocated
+        if (c_type != current->type && strcmp(c_type, "int") != 0 && 
+            strcmp(c_type, "float") != 0 && strcmp(c_type, "char*") != 0) {
+            free(c_type);
+        }
+        
         current = current->next;
     }
     
-    // Emite campos na ordem original
-    for (int i = field_count - 1; i >= 0; i--) {
-        char* c_type = convert_penelope_type_to_c(field_array[i]->type);
-        emit_line("%s %s;", c_type, field_array[i]->name);
-    }
-    
-    decrease_indent();
     emit_line("} %s;", struct_name);
-    emit_line("");
-}
-
-void emit_struct_field_access(const char* struct_var, const char* field_name, const char* field_type) {
-    // Esta função gera o código C para acessar um campo de struct
-    // A geração de código real acontece no tratamento de expressões
-    // Este é apenas um auxiliar que poderia ser usado para validação
+    emit_line(""); // Empty line for readability
 }

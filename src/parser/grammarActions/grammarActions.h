@@ -5,6 +5,13 @@
 #include "../../structs/expression/expressionResult.h"
 #include "../../structs/lvalue/lvalueResult.h"
 
+// Parameter collection for function signatures
+typedef struct FunctionParam {
+    char* type;
+    char* name;
+    struct FunctionParam* next;
+} FunctionParam;
+
 // Variáveis externas necessárias para ações da gramática
 extern int generate_code;
 extern int exec_block;
@@ -28,6 +35,7 @@ int handle_while_condition(ExpressionResult* condition);
 void handle_while_body_end(int start_label, int end_label);
 int handle_if_condition(ExpressionResult* condition);
 void handle_if_else_part(int else_label);
+void handle_if_else_if_part(int else_label);
 int get_current_end_label();
 void handle_if_end_part(int end_label);
 
@@ -103,5 +111,9 @@ void handle_function_parameter(const char* type, const char* param_name);
 
 // Return statement handling
 void handle_return_statement(ExpressionResult* expr);
+
+// Function signature handling for reference parameters
+void store_function_signature(const char* name, const char* return_type, FunctionParam* params);
+char* generate_function_call_with_references(const char* func_name, const char* args);
 
 #endif // GRAMMAR_ACTIONS_H

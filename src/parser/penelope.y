@@ -14,12 +14,6 @@ extern int yylex();
 extern void yyerror(const char* s);
 
 // Parameter collection for function signatures
-typedef struct FunctionParam {
-    char* type;
-    char* name;
-    struct FunctionParam* next;
-} FunctionParam;
-
 FunctionParam* current_function_params = NULL;
 char* current_function_name = NULL;
 char* current_function_return_type = NULL;
@@ -45,6 +39,7 @@ void emit_function_signature_with_info(const char* return_type, const char* func
 void add_function_argument(const char* arg_code);
 void clear_function_arguments();
 char* get_function_arguments();
+void store_function_signature(const char* name, const char* return_type, FunctionParam* params);
 
 %}
 
@@ -235,7 +230,12 @@ simple_stmt:
     | expression SEMICOLON {
         if (exec_block) {
             // Executa a expressão apenas se for dentro de bloco válido
+            // Gera código C para expressões que são statements (como chamadas de função)
+            if ($1 && $1->c_code) {
+                emit_line("%s;", $1->c_code);
+            }
         }
+        free_expression_result($1);
     }
     | BREAK SEMICOLON {
         if (exec_block) {
@@ -889,6 +889,9 @@ void emit_function_signature_with_info(const char* return_type, const char* func
         increase_indent();
         return;
     }
+    
+    // Store function signature for later use in function calls
+    store_function_signature(function_name, return_type, current_function_params);
     
     // Convert return type to C
     char* c_return_type = convert_penelope_type_to_c(return_type);
