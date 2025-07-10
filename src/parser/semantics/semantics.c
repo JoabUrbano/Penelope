@@ -106,24 +106,31 @@ int validate_array_access(const char* var_name, ExpressionResult* index) {
 }
 
 int validate_binary_operation(ExpressionResult* left, ExpressionResult* right, const char* operation) {
-    // Operações aritméticas
     if (strcmp(operation, "+") == 0 || strcmp(operation, "-") == 0 || 
-        strcmp(operation, "*") == 0 || strcmp(operation, "/") == 0 ||
-        strcmp(operation, "^") == 0) {
-        
-        if ((strcmp(left->type, "int") == 0 || strcmp(left->type, "float") == 0) &&
-            (strcmp(right->type, "int") == 0 || strcmp(right->type, "float") == 0)) {
-            return 1;
+    strcmp(operation, "*") == 0 || strcmp(operation, "/") == 0 ||
+    strcmp(operation, "^") == 0 || strcmp(operation, "%") == 0) {
+    
+      if ((strcmp(left->type, "int") == 0 || strcmp(left->type, "float") == 0) &&
+        (strcmp(right->type, "int") == 0 || strcmp(right->type, "float") == 0)) {
+
+        // Regra especial: módulo só faz sentido para inteiros
+        if (strcmp(operation, "%") == 0 &&
+            (strcmp(left->type, "int") != 0 || strcmp(right->type, "int") != 0)) {
+            semantic_error("Operação %% requer operandos do tipo int");
+            return 0;
         }
-        
-        // Concatenação de strings
-        if (strcmp(operation, "+") == 0 && strcmp(left->type, "string") == 0 && strcmp(right->type, "string") == 0) {
-            return 1;
-        }
-        
-        semantic_error("Operação %s não suportada entre tipos %s e %s", operation, left->type, right->type);
-        return 0;
+
+        return 1;
     }
+
+    // Concatenação de strings
+    if (strcmp(operation, "+") == 0 && strcmp(left->type, "string") == 0 && strcmp(right->type, "string") == 0) {
+        return 1;
+    }
+
+    semantic_error("Operação %s não suportada entre tipos %s e %s", operation, left->type, right->type);
+    return 0;
+}
     
     // Operações relacionais
     if (strcmp(operation, "<") == 0 || strcmp(operation, ">") == 0 || 
@@ -203,20 +210,20 @@ char* get_expression_result_type(ExpressionResult* expr) {
 
 char* get_binary_operation_result_type(const char* left_type, const char* right_type, const char* operation) {
     // Operações aritméticas
-    if (strcmp(operation, "+") == 0 || strcmp(operation, "-") == 0 || 
-        strcmp(operation, "*") == 0 || strcmp(operation, "/") == 0 ||
-        strcmp(operation, "^") == 0) {
-        
-        if (strcmp(left_type, "float") == 0 || strcmp(right_type, "float") == 0) {
-            return strdup("float");
-        }
-        if (strcmp(left_type, "int") == 0 && strcmp(right_type, "int") == 0) {
-            return strdup("int");
-        }
-        if (strcmp(operation, "+") == 0 && strcmp(left_type, "string") == 0 && strcmp(right_type, "string") == 0) {
-            return strdup("string");
-        }
+if (strcmp(operation, "+") == 0 || strcmp(operation, "-") == 0 || 
+    strcmp(operation, "*") == 0 || strcmp(operation, "/") == 0 ||
+    strcmp(operation, "^") == 0 || strcmp(operation, "%") == 0) {
+    
+    if (strcmp(left_type, "float") == 0 || strcmp(right_type, "float") == 0) {
+        return strdup("float");
     }
+    if (strcmp(left_type, "int") == 0 && strcmp(right_type, "int") == 0) {
+        return strdup("int");
+    }
+    if (strcmp(operation, "+") == 0 && strcmp(left_type, "string") == 0 && strcmp(right_type, "string") == 0) {
+        return strdup("string");
+    }
+}
     
     // Operações relacionais
     if (strcmp(operation, "<") == 0 || strcmp(operation, ">") == 0 || 
